@@ -1,0 +1,28 @@
+/* purgecss start ignore */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import url('https://fonts.googleapis.com/css?family=IBM+Plex+Sans+Thai:200,300,400,500,600,700&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Krona+One&display=swap');
+
+body {
+  font-family:  'IBM Plex Sans Thai';
+  overflow-y: auto;
+  background-color: #FEF8ED;
+  color: #333333;
+}
+
+input, 
+textarea {
+  -webkit-appearance: none;
+}
+
+.button-red {
+  color: #9a6b6b;
+  background-color: #9a6b6b29;
+}
+
+text {
+  font-family:  'IBM Plex Sans Thai';
+}
