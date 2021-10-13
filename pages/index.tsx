@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react"
 import axios from 'axios'
+import Head from 'next/head'
+import { NextSeo } from 'next-seo'
+import { useState, useEffect } from "react"
 
 type WaterData = {
     atg: Atg
@@ -258,7 +260,31 @@ const Page = () => {
         setDat(mark)    
     }
   }
-  return <div style={{ background: 'linear-gradient(180deg, #E4F2FC 0%, #C0E1F7 100%)' }} className="relative">
+  return <>
+    <NextSeo
+      title="ข้อมูลปริมาณน้ำลุ่มน้ำเจ้าพระยา–ปิง-วัง-ยม-น่าน"
+      description="infographic อัพเดทสถานการณ์น้ำท่วมที่ราบลุ่มเเม่น้ำภาคกลางรายชั่วโมง"
+      canonical="https://www.canonical.ie/"
+      openGraph={{
+        site_name: 'ThaiWaterway',
+        url: `https://thai-waterway.vercel.app/`,
+        title: "ข้อมูลปริมาณน้ำลุ่มน้ำเจ้าพระยา–ปิง-วัง-ยม-น่าน",
+        description: "infographic อัพเดทสถานการณ์น้ำท่วมที่ราบลุ่มเเม่น้ำภาคกลางรายชั่วโมง",
+        images: [{ 
+            url: 'https://canal-debris.s3.ap-southeast-1.amazonaws.com/botw-asset/bg.jpg', 
+            alt: "ข้อมูลปริมาณน้ำลุ่มน้ำเจ้าพระยา–ปิง-วัง-ยม-น่าน", 
+            width: 2880, 
+            height: 1592 
+        }]
+      }}
+      twitter={{
+        handle: '@handle',
+        site: '@site',
+        cardType: 'summary_large_image',
+      }}
+    />
+    <Head><title>ข้อมูลปริมาณน้ำลุ่มน้ำเจ้าพระยา–ปิงวังยมน่าน</title></Head>
+    <div style={{ background: 'linear-gradient(180deg, #E4F2FC 0%, #C0E1F7 100%)' }} className="relative">
       <img src="curve.png" className="fixed top-0 left-0 mt-40 ml-4 w-1/5" />
       {/* Water Map */}
       <div className="pt-16 w-full text-center">
@@ -801,7 +827,8 @@ const Page = () => {
               <div>ปริมาณน้ำ <span className="text-red-500">{dat.quantity}</span> / {dat.qmax} ลบ.ม.</div>
           </div>
       </div>}
-  </div> 
+    </div> 
+  </>
 }
 
 export default Page
