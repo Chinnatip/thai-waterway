@@ -271,7 +271,7 @@ const Page = () => {
         title: "ข้อมูลปริมาณน้ำลุ่มน้ำเจ้าพระยา–ปิง-วัง-ยม-น่าน",
         description: "infographic อัพเดทสถานการณ์น้ำท่วมที่ราบลุ่มเเม่น้ำภาคกลางรายชั่วโมง",
         images: [{ 
-            url: 'https://canal-debris.s3.ap-southeast-1.amazonaws.com/botw-asset/bg.jpg', 
+            url: 'https://canal-debris.s3.ap-southeast-1.amazonaws.com/botw-asset/bg+(1).jpg', 
             alt: "ข้อมูลปริมาณน้ำลุ่มน้ำเจ้าพระยา–ปิง-วัง-ยม-น่าน", 
             width: 2880, 
             height: 1592 
