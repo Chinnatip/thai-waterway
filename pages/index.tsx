@@ -263,13 +263,13 @@ const Page = () => {
   return <>
     <NextSeo
       title="ข้อมูลปริมาณน้ำลุ่มน้ำเจ้าพระยา–ปิง-วัง-ยม-น่าน"
-      description="infographic อัพเดทสถานการณ์น้ำท่วมที่ราบลุ่มเเม่น้ำภาคกลางรายชั่วโมง"
+      description="infographic อัปเดตสถานการณ์น้ำท่วมที่ราบลุ่มเเม่น้ำภาคกลางรายชั่วโมง"
       canonical="https://www.canonical.ie/"
       openGraph={{
         site_name: 'ThaiWaterway',
         url: `https://thai-waterway.vercel.app/`,
         title: "ข้อมูลปริมาณน้ำลุ่มน้ำเจ้าพระยา–ปิง-วัง-ยม-น่าน",
-        description: "infographic อัพเดทสถานการณ์น้ำท่วมที่ราบลุ่มเเม่น้ำภาคกลางรายชั่วโมง",
+        description: "infographic อัปเดตสถานการณ์น้ำท่วมที่ราบลุ่มเเม่น้ำภาคกลางรายชั่วโมง",
         images: [{ 
             url: 'https://canal-debris.s3.ap-southeast-1.amazonaws.com/botw-asset/bg+(1).jpg', 
             alt: "ข้อมูลปริมาณน้ำลุ่มน้ำเจ้าพระยา–ปิง-วัง-ยม-น่าน", 
@@ -726,7 +726,7 @@ const Page = () => {
             </svg>
           </div>
           <p className="text-sm mt-5">
-            อัพเดทวันที่ {datetime[0]} เวลา {datetime[1]}
+            อัปเดตวันที่ {datetime[0]} เวลา {datetime[1]}
           </p>
           <p className="text-xs mt-4">
             ขอขอบคุณภาพ infographic จาก <a target="_blank" rel="noreferrer" className="font-semibold" href="https://www.facebook.com/sarakadeemag/photos/a.1977566252472815/3111944712368291/">นิตยสารสารคดี</a> <br />
