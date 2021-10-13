@@ -1,457 +1,612 @@
 import { useState, useEffect } from "react"
-// import axios from 'axios'
+import axios from 'axios'
 
-// type ProvinceDat = {
-//     id: number
-//     geocode: string
-//     province_code: string
-//     province_name: Titler
-// }
+type WaterData = {
+    atg: Atg
+    cctv: CCTV
+    dam: Dam[]
+    egat: Egat[]
+    ib: IB
+    itc_water: ItcWater
+    tele: Tele[]
+}
 
-// type Titler = {
-//     en: string
-//     th: string
-//     jp?: string
+type ItcWater = {
+    [key: string]: {
+        station: string
+        id: string
+        name: string
+        r_bank: string
+        ground_level?: string
+        qmax: string
+        storage: string
+        water_l: string
+        wlup?: string
+        wldwn?: string
+        percent_stream?: string
+        rule?: string
+        date: string
+        icon: string
+        icon_span: string
+    }
+}
 
-// }
+type IB = {
+    [key: string]: {
+        ib_id: string
+        quantity: string
+        wlup: string
+        wldwn: string
+        qmax?: string
+        name: string
+    }
+}
 
-// type WaterDat = {
-//     agency:{
-//         agency_name: Titler
-//         agency_shortname:  Titler
-//         id: number
-//     }
-//     basin: {
-//         basin_code: number
-//         basin_name: Titler
-//         id: number
-//         floodgate?: string
-//         floodgate_height?: string
-//         floodgate_open?: string
-//     }
-//     geocode: {
-//         amphoe_code: string
-//         amphoe_name: Titler
-//         area_code: string
-//         area_name: Titler
-//         province_code: string
-//         province_name: Titler
-//         tumbon_code: string
-//         tumbon_name: Titler
-//     }
-//     pump?: string
-//     pump_on?: string
-//     station: {
-//         agency_id: number
-//         critical_level_m?: any
-//         critical_level_msl?: any
-//         geocode_id: number
-//         id: number
-//         is_key_station: boolean
-//         left_bank?: any
-//         right_bank?: any
-//         tele_station_lat: number
-//         tele_station_long: number
-//         tele_station_name: Titler
-//         tele_station_oldcode: string
-//         warning_level_m?: any
-//     }
-//     watergate_datetime_in: string
-//     watergate_datetime_out: string
-//     watergate_in: number
-//     watergate_out?: number
-//     watergate_out2?: number
-// }
+type Dam = {
+    d_dam_date: string
+    dam_id: string
+    dam_q: string
+    dam_q_last: string
+    inflow: string
+    storage: string
+    released: string
+    percent: string
+    icon: string
+    icon_span: string
+    name: string
+}
 
-// type StationDat = {
-//     province_code: string
-//     province_name: Titler
-//     station: {
-//         station_id: string
-//         station_lat: number
-//         station_long: number
-//         station_oldcode: string
-//         station_name: Titler
-//     }[]
-// }
+type Tele = {
+    id: string
+    code: string
+    date: string
+    time: string
+    water1: string
+    name: string
+    left_bank: string
+    right_bank: string
+    ground_level: string
+    rid_critical_level: string
+    schema_name: string
+    volume: string
+    wl_offset: string
+    tele_bank: string
+    bank: string
+    percent: number
+    icon: string
+    icon_span: string
+}
 
-// type WaterFetchData = {
-//     province?: {
-//         result: string
-//         data: ProvinceDat[]
-//     }
-//     station?: {
-//         result: string
-//         data: StationDat[]
-//     }
-//     watergate_data?: {
-//         result: string
-//         data: WaterDat[]
-//     }
-// }
+type Egat = {
+    station: string
+    name: string
+    dam_id: string
+    rbank: string
+    lbank: string
+    lat: string
+    lon: string
+    warn_level: string
+    critical_level: string
+    tele_bank: string
+    code: string
+    date: string
+    water_level: string
+    warn: string
+    critical: string
+    icon: string
+    icon_span: string
+    blinks: string
+}
+
+type Atg = {
+    [key: string]: {
+        code: string
+        w1_date: string
+        w1_time: string
+        w1: string
+        w2_date: string
+        w2_time: string
+        w2: string
+        gate_group: string
+        name: string
+        atg_name: string
+        id: number
+        quantity: string
+        qmax: string
+        station: string
+    }
+  }
+
+type CCTV = string[]
+
+type Marker = {
+    code: string
+    name: string
+    quantity: number
+    qmax: number
+    percent: number
+    icon: string
+
+}
+
+const damPercent = (store: string, total: string) => `${((parseFloat(store?.replace(',','')) / parseFloat(total?.replace(',','')) ) * 100).toFixed(2)}`
+const percent = (total: number | undefined): number => total != undefined ? parseFloat(total.toFixed(2)) : 0
+const getITC = (obj: ItcWater): Marker[] => {
+    const keys = Object.keys(obj)
+    return keys.map(k => {
+        const d = obj[k]
+        return {  
+            code: d.station,
+            name: d.name,
+            quantity: parseFloat( d.storage.replace(',','')),
+            qmax: parseFloat( d.qmax.replace(',','')),
+            percent: parseFloat( damPercent(d.storage,d.qmax)),
+            icon: d.icon_span
+        }
+    })
+}
+const getATG = (obj: Atg) :Marker[] => {
+    const keys = Object.keys(obj)
+    const percent = (quantity: number, qmax: number ) => {
+        if(quantity != 0 && qmax != 0){
+            return quantity*100/qmax
+        }else{
+            return 0
+        }
+    }
+    const status = (percent: number) => {
+        if(percent == 0){
+            return 'status_green'
+        }else if(percent < 31){
+            return 'status_yellow'
+        }else if(percent < 71){
+            return 'status_green'
+        }else if(percent <= 100){
+            return 'status_blue'
+        }else{
+            return 'status_red'
+        }
+    }
+    return keys.map(k => {
+        const d = obj[k]
+        const quantity = d.quantity != null ? parseFloat(d.quantity.replace(',','')) : 0
+        const qmax = d.qmax != null ? parseFloat(d.qmax.replace(',','')) : 0
+        const per = percent(quantity, qmax)
+        return {  
+            code: d.code,
+            name: d.name,
+            quantity:  quantity ,
+            qmax: qmax,
+            percent: parseFloat( per.toFixed(2)),
+            icon: status(per)
+        }
+    })
+}
+const getDam = (dam: any) :Marker[] => {
+    return dam.map((d: any) => {
+      return {  
+        code: `DAM${d.dam_id}`,
+        name: d.name,
+        quantity: parseFloat( d.storage),
+        qmax: parseFloat( d.dam_q),
+        percent: parseFloat( damPercent(d.storage,d.dam_q)),
+        icon: d.icon_span
+      }
+    })
+}
+const getTele = (tele: any) :Marker[] => {
+    const bake = (num: any) => (num != null || num != undefined) ? parseFloat(num) : 0
+    return tele.map((t: any) => {
+      return {  
+        code: t.code,
+        name: t.name,
+        quantity: bake(t.water1),
+        qmax: bake(t.bank),
+        percent: percent(t.percent),
+        icon: t.icon_span
+        }
+    })
+}
+const colorSwitch = (str: string) => {
+    switch(str){
+        case 'status_red': return '#A71E70';
+        case 'status_blue': return '#2B62B5';
+        case 'status_green': return '#5CB5E0';
+        case 'status_yellow': return '#C3900B';
+    }
+}
 
 const Page = () => {
   const [modal, setModal] = useState(false)
-  const [dat, setDat] = useState({ title: '' })
-//   const [waterGate, setWaterGate ] = useState<WaterDat[]>([])
-//   const [station, setStation ] = useState<StationDat[]>([])
-//   const [province, setProvince ] = useState<ProvinceDat[]>([])
-  const logger = (placeID: string) => {
-      setModal(true)
-      setDat({ title: placeID })
-  }
+  const [marker, setMarker] = useState<Marker[]>([])
+  const [datetime, setDateTime] = useState(['-','-'])
+  const [dat, setDat] = useState<Marker>({
+    code: '',
+    name: '',
+    quantity: 0,
+    qmax: 0,
+    percent: 0,
+    icon: ''
+  })
   useEffect(() => {
     (async () => {
-    //   const WATER_API = 'http://api-v3.thaiwater.net:9200/api/v1/thaiwater30/public/watergate_load'
-    //   const resp = await axios(WATER_API)
-    //   if (resp.status == 200) {
-    //     const res: any = resp.data 
-    //     const waterData: WaterFetchData = res
-    //     waterData.watergate_data?.data && setWaterGate(waterData.watergate_data?.data)
-    //     waterData.station?.data && setStation(waterData.station?.data)
-    //     waterData.province?.data && setProvince(waterData.province?.data)
-    //   }
+      const resp = await axios('/api/fetch')
+      if (resp.status == 200) {
+        const res: WaterData = resp.data.resp
+        const parcel : Marker[] = [...getDam(res?.dam), ...getTele(res?.tele), ...getITC(res?.itc_water), ...getATG(res?.atg)]
+        setMarker(parcel)
+        setDateTime([res.atg['ATG01'].w1_date, res.atg['ATG01'].w1_time])
+      }
     })()
   }, []);
+  const fillCheck = (str: string) => {
+      if(marker.length == 0){
+        return '#C4C4C4'
+      }else{
+        const mark = marker.find(m => m.code == str)
+        if(mark != undefined){
+            return colorSwitch(mark.icon)
+        }else{
+            return '#C4C4C4'
+        }
+      }
+  }
+  const logger = (placeID: string) => {
+    setModal(true)
+    const mark = marker.find(m => m.code == placeID)
+    if(mark != undefined){
+        setDat(mark)    
+    }
+  }
   return <div style={{ background: 'linear-gradient(180deg, #E4F2FC 0%, #C0E1F7 100%)' }} className="relative">
+      <img src="curve.png" className="fixed top-0 left-0 mt-40 ml-4 w-1/5" />
       {/* Water Map */}
-      <div className="pt-16 -ml-16 w-full text-center">
+      <div className="pt-16 w-full text-center">
           <span className="inline-block">
           <svg width="705" height="1242" viewBox="0 0 705 1242" fill="none" xmlns="http://www.w3.org/2000/svg">
               <g id="waterway">
                   <g id="river">
-                      <path id="Vector 22" d="M326.403 313.856H385.322" stroke="#94C056" strokeWidth="10"/>
-                      <path id="Vector 23" d="M340.266 251.471H370.399C374.131 251.471 377.367 254.052 378.198 257.69L382.102 274.784C382.673 277.285 384.409 279.36 386.768 280.364L404.384 287.863" stroke="#94C056" strokeWidth="10"/>
-                      <path id="Vector 24" d="M314.273 641.377H392.384C399.012 641.377 404.384 646.75 404.384 653.377V934.077C404.384 939.889 400.218 944.866 394.496 945.889L314.273 960.234" stroke="#94C056" strokeWidth="14"/>
-                      <path id="Vector 25" d="M314.273 564.263H589.07C595.697 564.263 601.07 569.635 601.07 576.263V1066" stroke="#94C056" strokeWidth="14"/>
-                      <path id="Vector 26" d="M194.701 915.178H312.54" stroke="#94C056" strokeWidth="14"/>
-                      <path id="Vector 27" d="M194.701 960.234H312.54" stroke="#94C056" strokeWidth="14"/>
-                      <path id="Vector 28" d="M314.273 617.117L124.056 617.117C115.219 617.117 108.056 624.28 108.056 633.117L108.056 891.909L108.056 1228.84" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 29" d="M486.698 170.126V239.471C486.698 246.099 481.325 251.471 474.698 251.471H404.384" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 30" d="M189.503 27.059V33.9906V181.419C189.503 188.046 184.13 193.419 177.503 193.419H118.453" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 31" d="M118.453 29.6583V348.622C118.742 363.605 136.476 393.57 205.099 393.57C273.722 393.57 305.319 393.57 312.54 393.57" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 32" d="M313.406 663.905H200.835C196.969 663.905 193.835 667.039 193.835 670.905V1020.82C193.835 1024.68 196.969 1027.82 200.835 1027.82H312.54M312.54 986.227H670.318C674.184 986.227 677.318 983.093 677.318 979.227V796.473" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 33" d="M315.139 786.942H498.76C502.626 786.942 505.76 790.076 505.76 793.942V985.361" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 34" d="M314.273 884.852H505.76" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 35" d="M108.922 1000.96H192.969" stroke="#73C8F1" strokeWidth="10"/>
-                      <path id="Vector 36" d="M30.1236 413.972L30.1235 476.682C30.1235 480.548 33.2575 483.682 37.1235 483.682L312.54 483.682" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 37" d="M313.406 581.592H27.3447C20.7173 581.592 15.3448 586.964 15.3448 593.592V867.523" stroke="#94C056" strokeWidth="14"/>
-                      <path id="Vector 38" d="M270.95 136.233H317.849C320.954 136.233 323.778 138.029 325.094 140.841L339.264 171.113C341.066 174.961 341.999 179.158 341.999 183.407V249.862C341.999 253.39 339.688 256.501 336.311 257.521L296.077 269.667" stroke="#94C056" strokeWidth="10"/>
-                      <path id="Vector 39" d="M328.136 147.497H366.887C369.91 147.497 372.907 148.045 375.734 149.114L403.518 159.627" stroke="#94C056" strokeWidth="10"/>
-                      <path id="Vector 40" d="M313.871 388.109L313.406 1225.37" stroke="#73C8F1" strokeWidth="26"/>
-                      <path id="Vector 41" d="M325.919 23L325.919 82.4539C325.919 89.0813 320.547 94.4539 313.919 94.4539H282.95C276.322 94.4539 270.95 99.8265 270.95 106.454V252.614C270.95 257.792 274.27 262.385 279.187 264.009L317.682 276.721C322.599 278.345 325.919 282.939 325.919 288.116V355.613C325.919 362.241 331.292 367.613 337.919 367.613H361.617C364.336 367.613 366.974 368.537 369.1 370.232L385.322 383.173" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 42" d="M442.508 23.5V134.63C442.508 141.258 437.136 146.63 430.508 146.63H416.384C409.757 146.63 404.384 152.003 404.384 158.63V296.527C404.384 301.791 400.117 306.058 394.853 306.058V306.058C389.589 306.058 385.322 310.325 385.322 315.589V381.571C385.322 388.198 379.95 393.571 373.322 393.571H312.393" stroke="#73C8F1" strokeWidth="14"/>
-                      <path id="Vector 43" d="M51.1458 1230.77L47.5622 1231.96C46.8865 1232.19 46.2659 1232.55 45.7408 1233.03C42.3348 1236.15 44.5437 1241.83 49.1643 1241.83H571.579C562.6 1241.83 553.882 1238.81 546.828 1233.26L545.617 1232.3L539.387 1227.32C537.766 1226.02 536.047 1224.85 534.245 1223.82L532.761 1222.98C527.536 1219.99 521.704 1218.22 515.7 1217.8L494.072 1216.29C489.762 1215.99 485.432 1216.39 481.249 1217.48L449.807 1225.63C443.866 1227.17 437.65 1227.32 431.64 1226.07L400.763 1219.66C396.845 1218.85 393.072 1217.46 389.568 1215.52L377.876 1209.07C372.663 1206.2 366.513 1205.54 360.811 1207.25C355.406 1208.87 349.587 1208.37 344.54 1205.85L324.587 1195.87C317.848 1192.5 310.294 1191.1 302.796 1191.84L275.624 1194.5C271.948 1194.86 268.339 1195.73 264.901 1197.08L259.33 1199.27C250.603 1202.7 240.95 1202.95 232.055 1199.99L220.237 1196.05C210.004 1192.64 198.827 1193.5 189.242 1198.45L180.544 1202.94C178.45 1204.02 176.589 1205.5 175.067 1207.3C170.643 1212.53 163.633 1214.79 156.989 1213.13L147.586 1210.78C144.926 1210.11 142.194 1209.77 139.451 1209.77H109.495C104.535 1209.77 99.6189 1210.7 94.9967 1212.49L91.4247 1213.88C88.1001 1215.18 84.564 1215.84 80.9969 1215.84H75.1175C69.1711 1215.84 63.6181 1218.81 60.3196 1223.76C58.1258 1227.05 54.8977 1229.51 51.1458 1230.77Z" fill="#73C8F1"/>
+                    <path id="Vector 22" d="M326.403 313.856H385.322" stroke="#94C056" strokeWidth="10"/>
+                    <path id="Vector 23" d="M340.266 251.471H370.399C374.131 251.471 377.367 254.052 378.198 257.69L382.102 274.784C382.673 277.285 384.409 279.36 386.768 280.364L404.384 287.863" stroke="#94C056" strokeWidth="10"/>
+                    <path id="Vector 24" d="M314.273 641.377H392.384C399.012 641.377 404.384 646.75 404.384 653.377V934.077C404.384 939.889 400.218 944.866 394.496 945.889L314.273 960.234" stroke="#94C056" strokeWidth="14"/>
+                    <path id="Vector 25" d="M314.273 564.263H589.07C595.697 564.263 601.07 569.635 601.07 576.263V1066" stroke="#94C056" strokeWidth="14"/>
+                    <path id="Vector 26" d="M194.701 915.178H312.54" stroke="#94C056" strokeWidth="14"/>
+                    <path id="Vector 27" d="M194.701 960.234H312.54" stroke="#94C056" strokeWidth="14"/>
+                    <path id="Vector 28" d="M314.273 617.117L124.056 617.117C115.219 617.117 108.056 624.28 108.056 633.117L108.056 891.909L108.056 1228.84" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 29" d="M486.698 170.126V239.471C486.698 246.099 481.325 251.471 474.698 251.471H404.384" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 30" d="M189.503 27.059V33.9906V181.419C189.503 188.046 184.13 193.419 177.503 193.419H118.453" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 31" d="M118.453 29.6583V348.622C118.742 363.605 136.476 393.57 205.099 393.57C273.722 393.57 305.319 393.57 312.54 393.57" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 32" d="M313.406 663.905H200.835C196.969 663.905 193.835 667.039 193.835 670.905V1020.82C193.835 1024.68 196.969 1027.82 200.835 1027.82H312.54M312.54 986.227H670.318C674.184 986.227 677.318 983.093 677.318 979.227V796.473" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 33" d="M315.139 786.942H498.76C502.626 786.942 505.76 790.076 505.76 793.942V985.361" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 34" d="M314.273 884.852H505.76" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 35" d="M108.922 1000.96H192.969" stroke="#73C8F1" strokeWidth="10"/>
+                    <path id="Vector 36" d="M30.1236 413.972L30.1235 476.682C30.1235 480.548 33.2575 483.682 37.1235 483.682L312.54 483.682" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 37" d="M313.406 581.592H27.3447C20.7173 581.592 15.3448 586.964 15.3448 593.592V867.523" stroke="#94C056" strokeWidth="14"/>
+                    <path id="Vector 38" d="M270.95 136.233H317.849C320.954 136.233 323.778 138.029 325.094 140.841L339.264 171.113C341.066 174.961 341.999 179.158 341.999 183.407V249.862C341.999 253.39 339.688 256.501 336.311 257.521L296.077 269.667" stroke="#94C056" strokeWidth="10"/>
+                    <path id="Vector 39" d="M328.136 147.497H366.887C369.91 147.497 372.907 148.045 375.734 149.114L403.518 159.627" stroke="#94C056" strokeWidth="10"/>
+                    <path id="Vector 40" d="M313.871 388.109L313.406 1225.37" stroke="#73C8F1" strokeWidth="26"/>
+                    <path id="Vector 41" d="M325.919 23L325.919 82.4539C325.919 89.0813 320.547 94.4539 313.919 94.4539H282.95C276.322 94.4539 270.95 99.8265 270.95 106.454V252.614C270.95 257.792 274.27 262.385 279.187 264.009L317.682 276.721C322.599 278.345 325.919 282.939 325.919 288.116V355.613C325.919 362.241 331.292 367.613 337.919 367.613H361.617C364.336 367.613 366.974 368.537 369.1 370.232L385.322 383.173" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 42" d="M442.508 23.5V134.63C442.508 141.258 437.136 146.63 430.508 146.63H416.384C409.757 146.63 404.384 152.003 404.384 158.63V296.527C404.384 301.791 400.117 306.058 394.853 306.058V306.058C389.589 306.058 385.322 310.325 385.322 315.589V381.571C385.322 388.198 379.95 393.571 373.322 393.571H312.393" stroke="#73C8F1" strokeWidth="14"/>
+                    <path id="Vector 43" d="M51.1458 1230.77L47.5622 1231.96C46.8865 1232.19 46.2659 1232.55 45.7408 1233.03C42.3348 1236.15 44.5437 1241.83 49.1643 1241.83H571.579C562.6 1241.83 553.882 1238.81 546.828 1233.26L545.617 1232.3L539.387 1227.32C537.766 1226.02 536.047 1224.85 534.245 1223.82L532.761 1222.98C527.536 1219.99 521.704 1218.22 515.7 1217.8L494.072 1216.29C489.762 1215.99 485.432 1216.39 481.249 1217.48L449.807 1225.63C443.866 1227.17 437.65 1227.32 431.64 1226.07L400.763 1219.66C396.845 1218.85 393.072 1217.46 389.568 1215.52L377.876 1209.07C372.663 1206.2 366.513 1205.54 360.811 1207.25C355.406 1208.87 349.587 1208.37 344.54 1205.85L324.587 1195.87C317.848 1192.5 310.294 1191.1 302.796 1191.84L275.624 1194.5C271.948 1194.86 268.339 1195.73 264.901 1197.08L259.33 1199.27C250.603 1202.7 240.95 1202.95 232.055 1199.99L220.237 1196.05C210.004 1192.64 198.827 1193.5 189.242 1198.45L180.544 1202.94C178.45 1204.02 176.589 1205.5 175.067 1207.3C170.643 1212.53 163.633 1214.79 156.989 1213.13L147.586 1210.78C144.926 1210.11 142.194 1209.77 139.451 1209.77H109.495C104.535 1209.77 99.6189 1210.7 94.9967 1212.49L91.4247 1213.88C88.1001 1215.18 84.564 1215.84 80.9969 1215.84H75.1175C69.1711 1215.84 63.6181 1218.81 60.3196 1223.76C58.1258 1227.05 54.8977 1229.51 51.1458 1230.77Z" fill="#73C8F1"/>
                   </g>
                   <g id="labelling">
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#160;&#224;&#184;&#185;&#224;&#184;&#161;&#224;&#184;&#180;&#224;&#184;&#158;&#224;&#184;&#165;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="55.3797" y="150.683">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe20;&#xe39;&#xe21;&#xe34;&#xe1e;&#xe25;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#151;&#224;&#184;&#177;&#224;&#184;&#154;&#224;&#185;&#128;&#224;&#184;&#170;&#224;&#184;&#165;&#224;&#184;&#178;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="5.87825" y="403.396">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe17;&#xe31;&#xe1a;&#xe40;&#xe2a;&#xe25;&#xe32;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#155;&#224;&#184;&#180;&#224;&#184;&#135;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="93.3201" y="15.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe1b;&#xe34;&#xe07;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#167;&#224;&#184;&#177;&#224;&#184;&#135;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="166.06" y="15.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe27;&#xe31;&#xe07;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#162;&#224;&#184;&#161;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="300.26" y="15.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe22;&#xe21;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#153;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#153;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="410.364" y="15.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe19;&#xe48;&#xe32;&#xe19;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#129;&#224;&#184;&#180;&#224;&#185;&#136;&#224;&#184;&#167;&#224;&#184;&#165;&#224;&#184;&#161;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="205.965" y="73.6916">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe01;&#xe34;&#xe48;&#xe27;&#xe25;&#xe21;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#170;&#224;&#184;&#180;&#224;&#184;&#163;&#224;&#184;&#180;&#224;&#184;&#129;&#224;&#184;&#180;&#224;&#184;&#149;&#224;&#184;&#180;&#224;&#185;&#140;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="461.657" y="94.5241">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe2a;&#xe34;&#xe23;&#xe34;&#xe01;&#xe34;&#xe15;&#xe34;&#xe4c;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#185;&#129;&#224;&#184;&#132;&#224;&#184;&#167;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#173;&#224;&#184;&#162;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="504.027" y="226.188">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe41;&#xe04;&#xe27;&#xe19;&#xe49;&#xe2d;&#xe22;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#155;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#170;&#224;&#184;&#177;&#224;&#184;&#129;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="658.211" y="746.258">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe1b;&#xe48;&#xe32;&#xe2a;&#xe31;&#xe01;</tspan></text>
-                      <text id="&#224;&#184;&#173;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#167;&#224;&#185;&#132;&#224;&#184;&#151;&#224;&#184;&#162;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="245.29" y="1226">&#xe2d;&#xe48;&#xe32;&#xe27;&#xe44;&#xe17;&#xe22;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#151;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#136;&#224;&#184;&#181;&#224;&#184;&#153; (&#224;&#185;&#129;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#170;&#224;&#184;&#184;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#163;&#224;&#184;&#147;)" transform="translate(101.99 1001.69) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe17;&#xe48;&#xe32;&#xe08;&#xe35;&#xe19; (&#xe41;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe2a;&#xe38;&#xe1e;&#xe23;&#xe23;&#xe13;)</tspan></text>
-                      <text id="&#224;&#184;&#132;.&#224;&#184;&#161;&#224;&#184;&#176;&#224;&#184;&#130;&#224;&#184;&#178;&#224;&#184;&#161;&#224;&#185;&#128;&#224;&#184;&#146;&#224;&#185;&#136;&#224;&#184;&#178;-&#224;&#184;&#173;&#224;&#184;&#185;&#224;&#185;&#136;&#224;&#184;&#151;&#224;&#184;&#173;&#224;&#184;&#135;" transform="translate(9.43356 769.396) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe04;.&#xe21;&#xe30;&#xe02;&#xe32;&#xe21;&#xe40;&#xe12;&#xe48;&#xe32;-&#xe2d;&#xe39;&#xe48;&#xe17;&#xe2d;&#xe07;</tspan></text>
-                      <text id="&#224;&#184;&#132;.&#224;&#184;&#138;&#224;&#184;&#177;&#224;&#184;&#162;&#224;&#184;&#153;&#224;&#184;&#178;&#224;&#184;&#151;-&#224;&#184;&#173;&#224;&#184;&#162;&#224;&#184;&#184;&#224;&#184;&#152;&#224;&#184;&#162;&#224;&#184;&#178;" transform="translate(398.109 750.794) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe04;.&#xe0a;&#xe31;&#xe22;&#xe19;&#xe32;&#xe17;-&#xe2d;&#xe22;&#xe38;&#xe18;&#xe22;&#xe32;</tspan></text>
-                      <text id="&#224;&#184;&#132;.&#224;&#184;&#138;&#224;&#184;&#177;&#224;&#184;&#162;&#224;&#184;&#153;&#224;&#184;&#178;&#224;&#184;&#151;&#226;&#128;&#147;&#224;&#184;&#155;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#170;&#224;&#184;&#177;&#224;&#184;&#129;" transform="translate(439.489 558.062)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe04;.&#xe0a;&#xe31;&#xe22;&#xe19;&#xe32;&#xe17;&#x2013;&#xe1b;&#xe48;&#xe32;&#xe2a;&#xe31;&#xe01;</tspan></text>
-                      <text id="&#224;&#184;&#132;.&#224;&#185;&#130;&#224;&#184;&#156;&#224;&#184;&#135;&#224;&#185;&#128;&#224;&#184;&#156;&#224;&#184;&#135;" transform="translate(230.678 909.792)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="1.44256" y="9.375">&#xe04;.&#xe42;&#xe1c;&#xe07;&#xe40;&#xe1c;&#xe07;</tspan></text>
-                      <text id="&#224;&#184;&#132;.&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#165;" transform="translate(231.156 954.127)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0.94158" y="9.375">&#xe04;.&#xe1a;&#xe32;&#xe07;&#xe1a;&#xe32;&#xe25;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#173;&#224;&#184;&#162;" transform="translate(186.903 781.476) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe19;&#xe49;&#xe2d;&#xe22;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#170;&#224;&#184;&#176;&#224;&#185;&#129;&#224;&#184;&#129;&#224;&#184;&#129;&#224;&#184;&#163;&#224;&#184;&#177;&#224;&#184;&#135;" transform="translate(136.649 477.75)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe2a;&#xe30;&#xe41;&#xe01;&#xe01;&#xe23;&#xe31;&#xe07;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#161;&#224;&#184;&#176;&#224;&#184;&#130;&#224;&#184;&#178;&#224;&#184;&#161;&#224;&#185;&#128;&#224;&#184;&#146;&#224;&#185;&#136;&#224;&#184;&#178;-&#224;&#184;&#173;&#224;&#184;&#185;&#224;&#185;&#136;&#224;&#184;&#151;&#224;&#184;&#173;&#224;&#184;&#135;" transform="translate(182.342 552.151)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe21;&#xe30;&#xe02;&#xe32;&#xe21;&#xe40;&#xe12;&#xe48;&#xe32;-&#xe2d;&#xe39;&#xe48;&#xe17;&#xe2d;&#xe07;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#139;&#224;&#185;&#137;&#224;&#184;&#178;&#224;&#184;&#162;" transform="translate(204.51 231.457)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1a;&#xe32;&#xe07;&#xe0b;&#xe49;&#xe32;&#xe22;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#171;&#224;&#184;&#129;&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#151;" transform="translate(284.314 113.228)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe2b;&#xe01;&#xe1a;&#xe32;&#xe17;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#162;&#224;&#184;&#161;&#224;&#184;&#153;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#153;" transform="translate(341.951 123.573)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe22;&#xe21;&#xe19;&#xe48;&#xe32;&#xe19;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#162;&#224;&#184;&#161;&#224;&#185;&#128;&#224;&#184;&#129;&#224;&#185;&#136;&#224;&#184;&#178;" transform="translate(349.34 193.032)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe22;&#xe21;&#xe40;&#xe01;&#xe48;&#xe32;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#153;&#224;&#185;&#128;&#224;&#184;&#163;&#224;&#184;&#168;&#224;&#184;&#167;&#224;&#184;&#163;" transform="translate(419.321 212.245)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe19;&#xe40;&#xe23;&#xe28;&#xe27;&#xe23;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#171;&#224;&#184;&#178;&#224;&#184;&#148; &#224;&#184;&#170;&#224;&#184;&#176;&#224;&#184;&#158;&#224;&#184;&#178;&#224;&#184;&#153;&#224;&#184;&#136;&#224;&#184;&#177;&#224;&#184;&#153;&#224;&#184;&#151;&#224;&#184;&#163;&#224;&#185;&#140;" transform="translate(203.032 136.83)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="14.8548" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe2b;&#xe32;&#xe14;&#10;</tspan><tspan x="5.52079" y="21.375">&#xe2a;&#xe30;&#xe1e;&#xe32;&#xe19;&#xe08;&#xe31;&#xe19;&#xe17;&#xe23;&#xe4c;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#158;&#224;&#184;&#165;&#224;&#185;&#128;&#224;&#184;&#151;&#224;&#184;&#158;" transform="translate(217.811 593.531)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="1.26559" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1e;&#xe25;&#xe40;&#xe17;&#xe1e;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#154;&#224;&#184;&#163;&#224;&#184;&#161;&#224;&#184;&#152;&#224;&#184;&#178;&#224;&#184;&#149;&#224;&#184;&#184;" transform="translate(210.422 636.389)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="4.97224" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1a;&#xe23;&#xe21;&#xe18;&#xe32;&#xe15;&#xe38;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#185;&#128;&#224;&#184;&#136;&#224;&#185;&#137;&#224;&#184;&#178;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#162;&#224;&#184;&#178;" transform="translate(222.245 685.158)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="2.50252" y="9.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe40;&#xe08;&#xe49;&#xe32;&#xe1e;&#xe23;&#xe30;&#xe22;&#xe32;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#156;&#224;&#184;&#177;&#224;&#184;&#129;&#224;&#185;&#132;&#224;&#184;&#171;&#224;&#185;&#136;" transform="translate(117.317 884.668)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="15.5103" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1c;&#xe31;&#xe01;&#xe44;&#xe2b;&#xe48;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#156;&#224;&#184;&#177;&#224;&#184;&#129;&#224;&#185;&#132;&#224;&#184;&#171;&#224;&#185;&#136;/&#224;&#185;&#128;&#224;&#184;&#136;&#224;&#185;&#137;&#224;&#184;&#178;&#224;&#185;&#128;&#224;&#184;&#136;&#224;&#185;&#135;&#224;&#184;&#148;" transform="translate(121.75 1020.63)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="10.1138" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1c;&#xe31;&#xe01;&#xe44;&#xe2b;&#xe48;/</tspan><tspan x="31.9547" y="21.375">&#xe40;&#xe08;&#xe49;&#xe32;&#xe40;&#xe08;&#xe47;&#xe14;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#162;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#161;&#224;&#184;&#147;&#224;&#184;&#181;" transform="translate(117.317 801.908)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="7.08162" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe22;&#xe32;&#xe07;&#xe21;&#xe13;&#xe35;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#136;&#224;&#184;&#177;&#224;&#184;&#153;" transform="translate(118.795 708.804)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="2.49373" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1a;&#xe32;&#xe07;&#xe23;&#xe30;&#xe08;&#xe31;&#xe19;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#185;&#130;&#224;&#184;&#158;&#224;&#184;&#152;&#224;&#184;&#180;&#224;&#185;&#140;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#162;&#224;&#184;&#178;" transform="translate(18.3007 832.943)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="9.28922" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe42;&#xe1e;&#xe18;&#xe34;&#xe4c;&#xe1e;&#xe23;&#xe30;&#xe22;&#xe32;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#170;&#224;&#184;&#178;&#224;&#184;&#161;&#224;&#184;&#138;&#224;&#184;&#184;&#224;&#184;&#129;" transform="translate(18.3007 654.123)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="21.6554" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe2a;&#xe32;&#xe21;&#xe0a;&#xe38;&#xe01;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#138;&#224;&#184;&#165;&#224;&#184;&#161;&#224;&#184;&#178;&#224;&#184;&#163;&#224;&#185;&#140;&#224;&#184;&#132; &#224;&#184;&#158;&#224;&#184;&#180;&#224;&#184;&#136;&#224;&#184;&#178;&#224;&#184;&#163;&#224;&#184;&#147;&#224;&#185;&#140;" transform="translate(18.3007 739.838)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="16.8214" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe0a;&#xe25;&#xe21;&#xe32;&#xe23;&#xe4c;&#xe04;&#10;</tspan><tspan x="40.8947" y="21.375">&#xe1e;&#xe34;&#xe08;&#xe32;&#xe23;&#xe13;&#xe4c;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#185;&#129;&#224;&#184;&#129;&#224;&#185;&#137;&#224;&#184;&#167;" transform="translate(340.473 858.067)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1a;&#xe32;&#xe07;&#xe41;&#xe01;&#xe49;&#xe27;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#165;&#224;&#184;&#158;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" transform="translate(340.473 757.573)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe25;&#xe1e;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#155;&#224;&#184;&#165;&#224;&#184;&#178;&#224;&#184;&#162;&#224;&#184;&#132;&#224;&#184;&#165;&#224;&#184;&#173;&#224;&#184;&#135;" transform="translate(523.727 949.694)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1b;&#xe25;&#xe32;&#xe22;&#xe04;&#xe25;&#xe2d;&#xe07;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#138;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#135;&#224;&#185;&#129;&#224;&#184;&#132;" transform="translate(532.594 628.999)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe0a;&#xe48;&#xe2d;&#xe07;&#xe41;&#xe04;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#185;&#130;&#224;&#184;&#132;&#224;&#184;&#129;&#224;&#184;&#129;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#185;&#128;&#224;&#184;&#151;&#224;&#184;&#181;&#224;&#184;&#162;&#224;&#184;&#161;" transform="translate(513 771)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe42;&#xe04;&#xe01;&#xe01;&#xe23;&#xe30;&#xe40;&#xe17;&#xe35;&#xe22;&#xe21;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#185;&#128;&#224;&#184;&#163;&#224;&#184;&#180;&#224;&#184;&#135;&#224;&#184;&#163;&#224;&#184;&#178;&#224;&#184;&#135;" transform="translate(534.072 866.934)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe40;&#xe23;&#xe34;&#xe07;&#xe23;&#xe32;&#xe07;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#163;&#224;&#184;&#178;&#224;&#184;&#161;6" transform="translate(494.17 998.463)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="17.4731" y="9.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe1e;&#xe23;&#xe30;&#xe23;&#xe32;&#xe21;6</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#153;&#224;&#184;&#178;&#224;&#184;&#163;&#224;&#184;&#178;&#224;&#184;&#162;&#224;&#184;&#147;&#224;&#185;&#140;" transform="translate(621.265 998.463)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1e;&#xe23;&#xe30;&#xe19;&#xe32;&#xe23;&#xe32;&#xe22;&#xe13;&#xe4c;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#161;&#224;&#184;&#171;&#224;&#184;&#178;&#224;&#184;&#163;&#224;&#184;&#178;&#224;&#184;&#138;" transform="translate(340.473 612.743)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe21;&#xe2b;&#xe32;&#xe23;&#xe32;&#xe0a;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#161;&#224;&#185;&#130;&#224;&#184;&#153;&#224;&#184;&#163;&#224;&#184;&#161;&#224;&#184;&#162;&#224;&#185;&#140;" transform="translate(340.473 534.417)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe21;&#xe42;&#xe19;&#xe23;&#xe21;&#xe22;&#xe4c;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#165;&#224;&#184;&#158;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" transform="translate(499 897) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe25;&#xe1e;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#155;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#170;&#224;&#184;&#177;&#224;&#184;&#129;" transform="translate(670.387 916.911) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe1b;&#xe48;&#xe32;&#xe2a;&#xe31;&#xe01;</tspan></text>
-                      <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#185;&#128;&#224;&#184;&#136;&#224;&#185;&#137;&#224;&#184;&#178;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#162;&#224;&#184;&#178;" transform="translate(305 859.112) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="12" fontWeight="600" letterSpacing="0em"><tspan x="0" y="12.5">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe40;&#xe08;&#xe49;&#xe32;&#xe1e;&#xe23;&#xe30;&#xe22;&#xe32;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#160;&#224;&#184;&#185;&#224;&#184;&#161;&#224;&#184;&#180;&#224;&#184;&#158;&#224;&#184;&#165;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="57.5221" y="137.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe20;&#xe39;&#xe21;&#xe34;&#xe1e;&#xe25;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#151;&#224;&#184;&#177;&#224;&#184;&#154;&#224;&#185;&#128;&#224;&#184;&#170;&#224;&#184;&#165;&#224;&#184;&#178;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="5.87825" y="403.396">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe17;&#xe31;&#xe1a;&#xe40;&#xe2a;&#xe25;&#xe32;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#155;&#224;&#184;&#180;&#224;&#184;&#135;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="93.3201" y="15.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe1b;&#xe34;&#xe07;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#167;&#224;&#184;&#177;&#224;&#184;&#135;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="166.06" y="15.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe27;&#xe31;&#xe07;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#162;&#224;&#184;&#161;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="300.26" y="15.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe22;&#xe21;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#153;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#153;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="410.364" y="15.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe19;&#xe48;&#xe32;&#xe19;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#129;&#224;&#184;&#180;&#224;&#185;&#136;&#224;&#184;&#167;&#224;&#184;&#165;&#224;&#184;&#161;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="206" y="64.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe01;&#xe34;&#xe48;&#xe27;&#xe25;&#xe21;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#170;&#224;&#184;&#180;&#224;&#184;&#163;&#224;&#184;&#180;&#224;&#184;&#129;&#224;&#184;&#180;&#224;&#184;&#149;&#224;&#184;&#180;&#224;&#185;&#140;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="460" y="83.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe2a;&#xe34;&#xe23;&#xe34;&#xe01;&#xe34;&#xe15;&#xe34;&#xe4c;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#185;&#129;&#224;&#184;&#132;&#224;&#184;&#167;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#173;&#224;&#184;&#162;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="502" y="216.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe41;&#xe04;&#xe27;&#xe19;&#xe49;&#xe2d;&#xe22;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#155;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#170;&#224;&#184;&#177;&#224;&#184;&#129;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="658.211" y="746.258">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe1b;&#xe48;&#xe32;&#xe2a;&#xe31;&#xe01;</tspan></text>
+                    <text id="&#224;&#184;&#173;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#167;&#224;&#185;&#132;&#224;&#184;&#151;&#224;&#184;&#162;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="14" fontWeight="600" letterSpacing="0em"><tspan x="245.29" y="1226">&#xe2d;&#xe48;&#xe32;&#xe27;&#xe44;&#xe17;&#xe22;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#151;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#136;&#224;&#184;&#181;&#224;&#184;&#153; (&#224;&#185;&#129;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#170;&#224;&#184;&#184;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#163;&#224;&#184;&#147;)" transform="translate(101.99 1001.69) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe17;&#xe48;&#xe32;&#xe08;&#xe35;&#xe19; (&#xe41;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe2a;&#xe38;&#xe1e;&#xe23;&#xe23;&#xe13;)</tspan></text>
+                    <text id="&#224;&#184;&#132;.&#224;&#184;&#161;&#224;&#184;&#176;&#224;&#184;&#130;&#224;&#184;&#178;&#224;&#184;&#161;&#224;&#185;&#128;&#224;&#184;&#146;&#224;&#185;&#136;&#224;&#184;&#178;-&#224;&#184;&#173;&#224;&#184;&#185;&#224;&#185;&#136;&#224;&#184;&#151;&#224;&#184;&#173;&#224;&#184;&#135;" transform="translate(9.43356 769.396) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe04;.&#xe21;&#xe30;&#xe02;&#xe32;&#xe21;&#xe40;&#xe12;&#xe48;&#xe32;-&#xe2d;&#xe39;&#xe48;&#xe17;&#xe2d;&#xe07;</tspan></text>
+                    <text id="&#224;&#184;&#132;.&#224;&#184;&#138;&#224;&#184;&#177;&#224;&#184;&#162;&#224;&#184;&#153;&#224;&#184;&#178;&#224;&#184;&#151;-&#224;&#184;&#173;&#224;&#184;&#162;&#224;&#184;&#184;&#224;&#184;&#152;&#224;&#184;&#162;&#224;&#184;&#178;" transform="translate(398.109 750.794) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe04;.&#xe0a;&#xe31;&#xe22;&#xe19;&#xe32;&#xe17;-&#xe2d;&#xe22;&#xe38;&#xe18;&#xe22;&#xe32;</tspan></text>
+                    <text id="&#224;&#184;&#132;.&#224;&#184;&#138;&#224;&#184;&#177;&#224;&#184;&#162;&#224;&#184;&#153;&#224;&#184;&#178;&#224;&#184;&#151;&#226;&#128;&#147;&#224;&#184;&#155;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#170;&#224;&#184;&#177;&#224;&#184;&#129;" transform="translate(439.489 558.062)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe04;.&#xe0a;&#xe31;&#xe22;&#xe19;&#xe32;&#xe17;&#x2013;&#xe1b;&#xe48;&#xe32;&#xe2a;&#xe31;&#xe01;</tspan></text>
+                    <text id="&#224;&#184;&#132;.&#224;&#185;&#130;&#224;&#184;&#156;&#224;&#184;&#135;&#224;&#185;&#128;&#224;&#184;&#156;&#224;&#184;&#135;" transform="translate(230.678 909.792)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="1.44256" y="9.375">&#xe04;.&#xe42;&#xe1c;&#xe07;&#xe40;&#xe1c;&#xe07;</tspan></text>
+                    <text id="&#224;&#184;&#132;.&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#165;" transform="translate(231.156 954.127)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0.94158" y="9.375">&#xe04;.&#xe1a;&#xe32;&#xe07;&#xe1a;&#xe32;&#xe25;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#173;&#224;&#184;&#162;" transform="translate(186.903 781.476) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe19;&#xe49;&#xe2d;&#xe22;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#170;&#224;&#184;&#176;&#224;&#185;&#129;&#224;&#184;&#129;&#224;&#184;&#129;&#224;&#184;&#163;&#224;&#184;&#177;&#224;&#184;&#135;" transform="translate(103 477.75)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe2a;&#xe30;&#xe41;&#xe01;&#xe01;&#xe23;&#xe31;&#xe07;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#161;&#224;&#184;&#176;&#224;&#184;&#130;&#224;&#184;&#178;&#224;&#184;&#161;&#224;&#185;&#128;&#224;&#184;&#146;&#224;&#185;&#136;&#224;&#184;&#178;-&#224;&#184;&#173;&#224;&#184;&#185;&#224;&#185;&#136;&#224;&#184;&#151;&#224;&#184;&#173;&#224;&#184;&#135;" transform="translate(174 552.151)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe21;&#xe30;&#xe02;&#xe32;&#xe21;&#xe40;&#xe12;&#xe48;&#xe32;-&#xe2d;&#xe39;&#xe48;&#xe17;&#xe2d;&#xe07;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#139;&#224;&#185;&#137;&#224;&#184;&#178;&#224;&#184;&#162;" transform="translate(204.51 231.457)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1a;&#xe32;&#xe07;&#xe0b;&#xe49;&#xe32;&#xe22;</tspan></text>
+                    <text id="&#224;&#184;&#173;.&#224;&#184;&#138;&#224;&#184;&#184;&#224;&#184;&#161;&#224;&#185;&#129;&#224;&#184;&#170;&#224;&#184;&#135;" transform="translate(397 373)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe2d;.&#xe0a;&#xe38;&#xe21;&#xe41;&#xe2a;&#xe07;</tspan></text>
+                    <text id="&#224;&#184;&#173;.&#224;&#184;&#170;&#224;&#184;&#176;&#224;&#184;&#158;&#224;&#184;&#178;&#224;&#184;&#153;&#224;&#184;&#165;&#224;&#184;&#178;&#224;&#184;&#153;&#224;&#184;&#148;&#224;&#184;&#173;&#224;&#184;&#129;&#224;&#185;&#132;&#224;&#184;&#161;&#224;&#185;&#137;" transform="translate(131 279)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe2d;.&#xe2a;&#xe30;&#xe1e;&#xe32;&#xe19;&#xe25;&#xe32;&#xe19;&#xe14;&#xe2d;&#xe01;&#xe44;&#xe21;&#xe49;</tspan></text>
+                    <text id="&#224;&#184;&#173;.&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#129;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#151;&#224;&#184;&#184;&#224;&#185;&#136;&#224;&#184;&#161;" transform="translate(406 309)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe2d;.&#xe1a;&#xe32;&#xe07;&#xe01;&#xe23;&#xe30;&#xe17;&#xe38;&#xe48;&#xe21;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#171;&#224;&#184;&#129;&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#151;" transform="translate(284.314 113.228)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe2b;&#xe01;&#xe1a;&#xe32;&#xe17;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#162;&#224;&#184;&#161;&#224;&#184;&#153;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#153;" transform="translate(341.951 123.573)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe22;&#xe21;&#xe19;&#xe48;&#xe32;&#xe19;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#162;&#224;&#184;&#161;&#224;&#185;&#128;&#224;&#184;&#129;&#224;&#185;&#136;&#224;&#184;&#178;" transform="translate(349.34 193.032)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe22;&#xe21;&#xe40;&#xe01;&#xe48;&#xe32;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#153;&#224;&#185;&#128;&#224;&#184;&#163;&#224;&#184;&#168;&#224;&#184;&#167;&#224;&#184;&#163;" transform="translate(419.321 212.245)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe19;&#xe40;&#xe23;&#xe28;&#xe27;&#xe23;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#171;&#224;&#184;&#178;&#224;&#184;&#148; &#224;&#184;&#170;&#224;&#184;&#176;&#224;&#184;&#158;&#224;&#184;&#178;&#224;&#184;&#153;&#224;&#184;&#136;&#224;&#184;&#177;&#224;&#184;&#153;&#224;&#184;&#151;&#224;&#184;&#163;&#224;&#185;&#140;" transform="translate(203.032 136.83)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="14.8548" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe2b;&#xe32;&#xe14;&#10;</tspan><tspan x="5.52079" y="21.375">&#xe2a;&#xe30;&#xe1e;&#xe32;&#xe19;&#xe08;&#xe31;&#xe19;&#xe17;&#xe23;&#xe4c;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#158;&#224;&#184;&#165;&#224;&#185;&#128;&#224;&#184;&#151;&#224;&#184;&#158;" transform="translate(209.469 593.531)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="1.26559" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1e;&#xe25;&#xe40;&#xe17;&#xe1e;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#154;&#224;&#184;&#163;&#224;&#184;&#161;&#224;&#184;&#152;&#224;&#184;&#178;&#224;&#184;&#149;&#224;&#184;&#184;" transform="translate(202.079 636.389)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="4.97224" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1a;&#xe23;&#xe21;&#xe18;&#xe32;&#xe15;&#xe38;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#185;&#128;&#224;&#184;&#136;&#224;&#185;&#137;&#224;&#184;&#178;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#162;&#224;&#184;&#178;" transform="translate(222.245 685.158)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="2.50252" y="9.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe40;&#xe08;&#xe49;&#xe32;&#xe1e;&#xe23;&#xe30;&#xe22;&#xe32;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#156;&#224;&#184;&#177;&#224;&#184;&#129;&#224;&#185;&#132;&#224;&#184;&#171;&#224;&#185;&#136;/&#224;&#185;&#128;&#224;&#184;&#136;&#224;&#185;&#137;&#224;&#184;&#178;&#224;&#185;&#128;&#224;&#184;&#136;&#224;&#185;&#135;&#224;&#184;&#148;" transform="translate(121.75 1020.63)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="10.1138" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1c;&#xe31;&#xe01;&#xe44;&#xe2b;&#xe48;/</tspan><tspan x="31.9547" y="21.375">&#xe40;&#xe08;&#xe49;&#xe32;&#xe40;&#xe08;&#xe47;&#xe14;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#162;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#161;&#224;&#184;&#147;&#224;&#184;&#181;" transform="translate(117.317 808.908)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="7.08162" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe22;&#xe32;&#xe07;&#xe21;&#xe13;&#xe35;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#136;&#224;&#184;&#177;&#224;&#184;&#153;" transform="translate(118.795 708.804)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="2.49373" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1a;&#xe32;&#xe07;&#xe23;&#xe30;&#xe08;&#xe31;&#xe19;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#185;&#130;&#224;&#184;&#158;&#224;&#184;&#152;&#224;&#184;&#180;&#224;&#185;&#140;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#162;&#224;&#184;&#178;" transform="translate(18.3007 832.943)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="9.28922" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe42;&#xe1e;&#xe18;&#xe34;&#xe4c;&#xe1e;&#xe23;&#xe30;&#xe22;&#xe32;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#151;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#185;&#130;&#224;&#184;&#154;&#224;&#184;&#170;&#224;&#184;&#150;&#224;&#185;&#140;" transform="translate(18.3007 654.123)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="18.2804" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe17;&#xe48;&#xe32;&#xe42;&#xe1a;&#xe2a;&#xe16;&#xe4c;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#138;&#224;&#184;&#165;&#224;&#184;&#161;&#224;&#184;&#178;&#224;&#184;&#163;&#224;&#185;&#140;&#224;&#184;&#132; &#224;&#184;&#158;&#224;&#184;&#180;&#224;&#184;&#136;&#224;&#184;&#178;&#224;&#184;&#163;&#224;&#184;&#147;&#224;&#185;&#140;" transform="translate(18.3007 739.838)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="16.8214" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe0a;&#xe25;&#xe21;&#xe32;&#xe23;&#xe4c;&#xe04;&#10;</tspan><tspan x="40.8947" y="21.375">&#xe1e;&#xe34;&#xe08;&#xe32;&#xe23;&#xe13;&#xe4c;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#154;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#185;&#129;&#224;&#184;&#129;&#224;&#185;&#137;&#224;&#184;&#167;" transform="translate(340.473 858.067)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1a;&#xe32;&#xe07;&#xe41;&#xe01;&#xe49;&#xe27;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#165;&#224;&#184;&#158;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" transform="translate(340.473 757.573)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe25;&#xe1e;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#155;&#224;&#184;&#165;&#224;&#184;&#178;&#224;&#184;&#162;&#224;&#184;&#132;&#224;&#184;&#165;&#224;&#184;&#173;&#224;&#184;&#135;" transform="translate(523.727 949.694)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1b;&#xe25;&#xe32;&#xe22;&#xe04;&#xe25;&#xe2d;&#xe07;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#138;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#135;&#224;&#185;&#129;&#224;&#184;&#132;" transform="translate(532.594 628.999)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe0a;&#xe48;&#xe2d;&#xe07;&#xe41;&#xe04;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#185;&#130;&#224;&#184;&#132;&#224;&#184;&#129;&#224;&#184;&#129;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#185;&#128;&#224;&#184;&#151;&#224;&#184;&#181;&#224;&#184;&#162;&#224;&#184;&#161;" transform="translate(513 771)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe42;&#xe04;&#xe01;&#xe01;&#xe23;&#xe30;&#xe40;&#xe17;&#xe35;&#xe22;&#xe21;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#185;&#128;&#224;&#184;&#163;&#224;&#184;&#180;&#224;&#184;&#135;&#224;&#184;&#163;&#224;&#184;&#178;&#224;&#184;&#135;" transform="translate(534.072 866.934)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe40;&#xe23;&#xe34;&#xe07;&#xe23;&#xe32;&#xe07;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#130;&#224;&#184;&#183;&#224;&#185;&#136;&#224;&#184;&#173;&#224;&#184;&#153;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#163;&#224;&#184;&#178;&#224;&#184;&#161;6" transform="translate(494.17 998.463)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="17.4731" y="9.375">&#xe40;&#xe02;&#xe37;&#xe48;&#xe2d;&#xe19;&#xe1e;&#xe23;&#xe30;&#xe23;&#xe32;&#xe21;6</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#153;&#224;&#184;&#178;&#224;&#184;&#163;&#224;&#184;&#178;&#224;&#184;&#162;&#224;&#184;&#147;&#224;&#185;&#140;" transform="translate(621.265 998.463)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe1e;&#xe23;&#xe30;&#xe19;&#xe32;&#xe23;&#xe32;&#xe22;&#xe13;&#xe4c;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#161;&#224;&#184;&#171;&#224;&#184;&#178;&#224;&#184;&#163;&#224;&#184;&#178;&#224;&#184;&#138;" transform="translate(354.473 612.743)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe21;&#xe2b;&#xe32;&#xe23;&#xe32;&#xe0a;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#149;&#224;&#184;&#163;.&#224;&#184;&#161;&#224;&#185;&#130;&#224;&#184;&#153;&#224;&#184;&#163;&#224;&#184;&#161;&#224;&#184;&#162;&#224;&#185;&#140;" transform="translate(354.473 534.417)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="9" fontWeight="600" letterSpacing="0em"><tspan x="0" y="9.375">&#xe1b;&#xe15;&#xe23;.&#xe21;&#xe42;&#xe19;&#xe23;&#xe21;&#xe22;&#xe4c;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#165;&#224;&#184;&#158;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" transform="translate(499 897) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe25;&#xe1e;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#184;&#155;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#170;&#224;&#184;&#177;&#224;&#184;&#129;" transform="translate(670.387 916.911) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="10" fontWeight="600" letterSpacing="0em"><tspan x="0" y="10.25">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe1b;&#xe48;&#xe32;&#xe2a;&#xe31;&#xe01;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#185;&#128;&#224;&#184;&#161;&#224;&#185;&#136;&#224;&#184;&#153;&#224;&#185;&#137;&#224;&#184;&#179;&#224;&#185;&#128;&#224;&#184;&#136;&#224;&#185;&#137;&#224;&#184;&#178;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#162;&#224;&#184;&#178;" transform="translate(305 859.112) rotate(-90)" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="12" fontWeight="600" letterSpacing="0em"><tspan x="0" y="12.5">&#xe40;&#xe40;&#xe21;&#xe48;&#xe19;&#xe49;&#xe33;&#xe40;&#xe08;&#xe49;&#xe32;&#xe1e;&#xe23;&#xe30;&#xe22;&#xe32;</tspan></text>
                   </g>
                   <g id="gate">
-                      <g id="Group 2">
-                      <rect id="Rectangle 1" x="107" y="142.523" width="23" height="5.1046" fill="black"/>
-                      <path id="Rectangle 2" d="M107 130.66C107 127.551 107.725 124.486 109.116 121.706L111.472 117H126.167L128.379 122.156C129.449 124.648 130 127.331 130 130.043V142.523H107V130.66Z" fill="url(#paint0_linear)"/>
-                      </g>
-                      <g id="Group 6">
-                      <rect id="Rectangle 1_2" x="659.989" y="789.83" width="34.6583" height="7.5093" fill="black"/>
-                      <path id="Rectangle 2_2" d="M659.989 770.254C659.989 767.081 660.745 763.952 662.193 761.128L666.728 752.284H688.871L692.957 761.579C694.072 764.115 694.648 766.856 694.648 769.627V789.83H659.989V770.254Z" fill="url(#paint1_linear)"/>
-                      </g>
-                      <g id="Group 37">
-                      <rect id="Rectangle 1_3" x="16.8228" y="441.558" width="25.1235" height="5.66511" fill="black"/>
-                      <path id="Rectangle 2_3" d="M16.8228 427.807C16.8228 424.741 17.5275 421.716 18.8825 418.967L21.7079 413.233H37.7591L40.3704 419.415C41.4104 421.878 41.9463 424.524 41.9463 427.197V441.558H16.8228V427.807Z" fill="url(#paint2_linear)"/>
-                      </g>
-                      <g id="Group 3">
-                      <rect id="Rectangle 1_4" x="178.239" y="69.8042" width="22.5279" height="4.90993" fill="black"/>
-                      <path id="Rectangle 2_4" d="M178.239 58.6509C178.239 55.4932 178.987 52.3803 180.421 49.5671L182.619 45.2546H197.012L199.093 50.0176C200.197 52.5432 200.767 55.2697 200.767 58.0259V69.8042H178.239V58.6509Z" fill="url(#paint3_linear)"/>
-                      </g>
-                      <g id="Group 4">
-                      <rect id="Rectangle 1_5" x="476.3" y="222.301" width="20.6998" height="4.90993" fill="black"/>
-                      <path id="Rectangle 2_5" d="M476.3 210.796C476.3 207.863 476.945 204.967 478.189 202.312L480.325 197.751H493.55L495.56 202.757C496.511 205.126 497 207.656 497 210.209V222.301H476.3V210.796Z" fill="url(#paint4_linear)"/>
-                      </g>
-                      <g id="Group 5">
-                      <rect id="Rectangle 1_6" x="431" y="88.5496" width="23" height="4.90993" fill="black"/>
-                      <path id="Rectangle 2_6" d="M431 77.4857C431 74.2709 431.775 71.1035 433.259 68.2518L435.472 64H450.167L452.265 68.7029C453.409 71.2671 454 74.0435 454 76.8514V88.5496H431V77.4857Z" fill="url(#paint5_linear)"/>
-                      </g>
-                      <g id="Group 7">
-                      <path id="Vector 45" d="M287.413 698L290.878 693.846H342.866L339.4 698H287.413Z" fill="#727272"/>
-                      <rect id="Rectangle 3" x="290.878" y="680" width="51.9875" height="13.8462" fill="#C4C4C4"/>
-                      <path id="Vector 44" d="M287.412 698V685.538L290.878 680V693.846L287.412 698Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 8">
-                      <path id="Vector 45_2" d="M178.239 720.225L180.08 717.626H207.698L205.857 720.225H178.239Z" fill="#727272"/>
-                      <rect id="Rectangle 3_2" x="180.08" y="708.961" width="27.6183" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_2" d="M178.239 720.225V712.427L180.08 708.961V717.626L178.239 720.225Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 11">
-                      <path id="Vector 45_3" d="M91.5931 664.772L93.6509 662.172H124.518L122.461 664.772H91.5931Z" fill="#727272"/>
-                      <rect id="Rectangle 3_3" x="93.6509" y="653.508" width="30.8675" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_3" d="M91.5931 664.772V656.974L93.6509 653.508V662.172L91.5931 664.772Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 12">
-                      <path id="Vector 45_4" d="M91.5931 751.418L93.6509 748.818H124.518L122.461 751.418H91.5931Z" fill="#727272"/>
-                      <rect id="Rectangle 3_4" x="93.6509" y="740.154" width="30.8675" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_4" d="M91.5931 751.418V743.619L93.6509 740.154V748.818L91.5931 751.418Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 13">
-                      <path id="Vector 45_5" d="M91.5931 843.262L93.6509 840.663H124.518L122.461 843.262H91.5931Z" fill="#727272"/>
-                      <rect id="Rectangle 3_5" x="93.6509" y="831.998" width="30.8675" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_5" d="M91.5931 843.262V835.464L93.6509 831.998V840.663L91.5931 843.262Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 9">
-                      <path id="Vector 45_6" d="M178.239 812.07L180.08 809.47H207.698L205.857 812.07H178.239Z" fill="#727272"/>
-                      <rect id="Rectangle 3_6" x="180.08" y="800.806" width="27.6183" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_6" d="M178.239 812.07V804.271L180.08 800.806V809.47L178.239 812.07Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 18">
-                      <path id="Vector 45_7" d="M490.164 961.1L492.005 958.501H519.623L517.782 961.1H490.164Z" fill="#727272"/>
-                      <rect id="Rectangle 3_7" x="492.005" y="949.836" width="27.6183" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_7" d="M490.164 961.1V953.302L492.005 949.836V958.501L490.164 961.1Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 19">
-                      <path id="Vector 45_8" d="M585.474 877.92L587.315 875.321H614.933L613.092 877.92H585.474Z" fill="#727272"/>
-                      <rect id="Rectangle 3_8" x="587.315" y="866.656" width="27.6183" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_8" d="M585.474 877.92V870.122L587.315 866.656V875.321L585.474 877.92Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 22">
-                      <path id="Vector 45_9" d="M585.474 1007.89L587.315 1005.29H614.933L613.092 1007.89H585.474Z" fill="#727272"/>
-                      <rect id="Rectangle 3_9" x="587.315" y="996.625" width="27.6183" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_9" d="M585.474 1007.89V1000.09L587.315 996.625V1005.29L585.474 1007.89Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 20">
-                      <path id="Vector 45_10" d="M585.474 782.61L587.315 780.011H614.933L613.092 782.61H585.474Z" fill="#727272"/>
-                      <rect id="Rectangle 3_10" x="587.315" y="771.346" width="27.6183" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_10" d="M585.474 782.61V774.812L587.315 771.346V780.011L585.474 782.61Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 21">
-                      <path id="Vector 45_11" d="M585.474 638.778L587.315 636.179H614.933L613.092 638.778H585.474Z" fill="#727272"/>
-                      <rect id="Rectangle 3_11" x="587.315" y="627.514" width="27.6183" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_11" d="M585.474 638.778V630.98L587.315 627.514V636.179L585.474 638.778Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 10">
-                      <path id="Vector 45_12" d="M178.239 895.249L180.08 892.65H207.698L205.857 895.249H178.239Z" fill="#727272"/>
-                      <rect id="Rectangle 3_12" x="180.08" y="883.986" width="27.6183" height="8.66458" fill="#C4C4C4"/>
-                      <path id="Vector 44_12" d="M178.239 895.249V887.451L180.08 883.986V892.65L178.239 895.249Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 14">
-                      <path id="Vector 45_13" d="M180.838 1017.42L178.239 1015.58L178.239 987.96L180.838 989.802L180.838 1017.42Z" fill="#727272"/>
-                      <rect id="Rectangle 3_13" x="169.574" y="1015.58" width="27.6183" height="8.66458" transform="rotate(-90 169.574 1015.58)" fill="#C4C4C4"/>
-                      <path id="Vector 44_13" d="M180.838 1017.42L173.04 1017.42L169.574 1015.58L178.239 1015.58L180.838 1017.42Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 15">
-                      <path id="Vector 45_14" d="M581.142 1001.82L578.542 999.983L578.542 972.364L581.142 974.205L581.142 1001.82Z" fill="#727272"/>
-                      <rect id="Rectangle 3_14" x="569.878" y="999.983" width="27.6183" height="8.66458" transform="rotate(-90 569.878 999.983)" fill="#C4C4C4"/>
-                      <path id="Vector 44_14" d="M581.142 1001.82L573.343 1001.82L569.878 999.983L578.542 999.983L581.142 1001.82Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 16">
-                      <path id="Vector 45_15" d="M352.397 901.315L349.797 899.473L349.797 871.855L352.397 873.696L352.397 901.315Z" fill="#727272"/>
-                      <rect id="Rectangle 3_15" x="341.133" y="899.473" width="27.6183" height="8.66458" transform="rotate(-90 341.133 899.473)" fill="#C4C4C4"/>
-                      <path id="Vector 44_15" d="M352.397 901.315L344.599 901.315L341.133 899.473L349.797 899.473L352.397 901.315Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 17">
-                      <path id="Vector 45_16" d="M352.397 802.539L349.797 800.697L349.797 773.079L352.397 774.92L352.397 802.539Z" fill="#727272"/>
-                      <rect id="Rectangle 3_16" x="341.133" y="800.697" width="27.6183" height="8.66458" transform="rotate(-90 341.133 800.697)" fill="#C4C4C4"/>
-                      <path id="Vector 44_16" d="M352.397 802.539L344.599 802.539L341.133 800.697L349.797 800.697L352.397 802.539Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 23">
-                      <path id="Vector 45_17" d="M283.08 677.769L280.481 675.927L280.481 648.309L283.08 650.15L283.08 677.769Z" fill="#727272"/>
-                      <rect id="Rectangle 3_17" x="271.816" y="675.927" width="27.6183" height="8.66458" transform="rotate(-90 271.816 675.927)" fill="#C4C4C4"/>
-                      <path id="Vector 44_17" d="M283.08 677.769L275.282 677.769L271.816 675.927L280.481 675.927L283.08 677.769Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 24">
-                      <path id="Vector 45_18" d="M283.08 594.589L280.481 592.747L280.481 565.129L283.08 566.97L283.08 594.589Z" fill="#727272"/>
-                      <rect id="Rectangle 3_18" x="271.816" y="592.747" width="27.6183" height="8.66458" transform="rotate(-90 271.816 592.747)" fill="#C4C4C4"/>
-                      <path id="Vector 44_18" d="M283.08 594.589L275.282 594.589L271.816 592.747L280.481 592.747L283.08 594.589Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 26">
-                      <path id="Vector 45_19" d="M352.397 578.992L349.797 577.151L349.797 549.533L352.397 551.374L352.397 578.992Z" fill="#727272"/>
-                      <rect id="Rectangle 3_19" x="341.133" y="577.151" width="27.6183" height="8.66458" transform="rotate(-90 341.133 577.151)" fill="#C4C4C4"/>
-                      <path id="Vector 44_19" d="M352.397 578.992L344.599 578.992L341.133 577.151L349.797 577.151L352.397 578.992Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 28">
-                      <path id="Vector 45_20" d="M344.599 322.521L342.999 321.221L342.999 301.726L344.599 303.026L344.599 322.521Z" fill="#727272"/>
-                      <rect id="Rectangle 3_20" x="337.667" y="321.221" width="19.4953" height="5.33205" transform="rotate(-90 337.667 321.221)" fill="#C4C4C4"/>
-                      <path id="Vector 44_20" d="M344.599 322.521L339.8 322.521L337.667 321.221L342.999 321.221L344.599 322.521Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 29">
-                      <path id="Vector 45_21" d="M356.729 261.869L355.129 260.569L355.129 241.074L356.729 242.374L356.729 261.869Z" fill="#727272"/>
-                      <rect id="Rectangle 3_21" x="349.797" y="260.569" width="19.4953" height="5.33205" transform="rotate(-90 349.797 260.569)" fill="#C4C4C4"/>
-                      <path id="Vector 44_21" d="M356.729 261.869L351.93 261.869L349.797 260.569L355.129 260.569L356.729 261.869Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 30">
-                      <path id="Vector 45_22" d="M290.878 147.497L289.279 146.197L289.279 126.702L290.878 128.001L290.878 147.497Z" fill="#727272"/>
-                      <rect id="Rectangle 3_22" x="283.947" y="146.197" width="19.4953" height="5.33205" transform="rotate(-90 283.947 146.197)" fill="#C4C4C4"/>
-                      <path id="Vector 44_22" d="M290.878 147.497L286.079 147.497L283.947 146.197L289.279 146.197L290.878 147.497Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 31">
-                      <path id="Vector 45_23" d="M349.797 157.894L348.198 156.594L348.198 137.099L349.797 138.399L349.797 157.894Z" fill="#727272"/>
-                      <rect id="Rectangle 3_23" x="342.866" y="156.594" width="19.4953" height="5.33205" transform="rotate(-90 342.866 156.594)" fill="#C4C4C4"/>
-                      <path id="Vector 44_23" d="M349.797 157.894L344.999 157.894L342.866 156.594L348.198 156.594L349.797 157.894Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 32">
-                      <path id="Vector 45_24" d="M330.735 192.552L332.143 190.553H353.263L351.855 192.552H330.735Z" fill="#727272"/>
-                      <rect id="Rectangle 3_24" x="332.143" y="183.888" width="21.1199" height="6.66506" fill="#C4C4C4"/>
-                      <path id="Vector 44_24" d="M330.735 192.552V186.554L332.143 183.888V190.553L330.735 192.552Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 33">
-                      <path id="Vector 45_25" d="M330.735 192.552L332.143 190.553H353.263L351.855 192.552H330.735Z" fill="#727272"/>
-                      <rect id="Rectangle 3_25" x="332.143" y="183.888" width="21.1199" height="6.66506" fill="#C4C4C4"/>
-                      <path id="Vector 44_25" d="M330.735 192.552V186.554L332.143 183.888V190.553L330.735 192.552Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 34">
-                      <path id="Vector 45_26" d="M257.953 152.695L259.469 150.696H282.214L280.697 152.695H257.953Z" fill="#727272"/>
-                      <rect id="Rectangle 3_26" x="259.469" y="144.031" width="22.7445" height="6.66506" fill="#C4C4C4"/>
-                      <path id="Vector 44_26" d="M257.953 152.695V146.697L259.469 144.031V150.696L257.953 152.695Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 35">
-                      <path id="Vector 45_27" d="M257.953 241.074L259.469 239.074H282.214L280.697 241.074H257.953Z" fill="#727272"/>
-                      <rect id="Rectangle 3_27" x="259.469" y="232.409" width="22.7445" height="6.66506" fill="#C4C4C4"/>
-                      <path id="Vector 44_27" d="M257.953 241.074V235.075L259.469 232.409V239.074L257.953 241.074Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 36">
-                      <path id="Vector 45_28" d="M389.654 223.745L391.279 221.745H415.648L414.024 223.745H389.654Z" fill="#727272"/>
-                      <rect id="Rectangle 3_28" x="391.279" y="215.08" width="24.3691" height="6.66506" fill="#C4C4C4"/>
-                      <path id="Vector 44_28" d="M389.654 223.745V217.746L391.279 215.08V221.745L389.654 223.745Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 27">
-                      <path id="Vector 45_29" d="M352.397 656.974L349.797 655.132L349.797 627.514L352.397 629.355L352.397 656.974Z" fill="#727272"/>
-                      <rect id="Rectangle 3_29" x="341.133" y="655.132" width="27.6183" height="8.66458" transform="rotate(-90 341.133 655.132)" fill="#C4C4C4"/>
-                      <path id="Vector 44_29" d="M352.397 656.974L344.599 656.974L341.133 655.132L349.797 655.132L352.397 656.974Z" fill="#9C9C9C"/>
-                      </g>
-                      <g id="Group 25">
-                      <path id="Vector 45_30" d="M283.08 632.203L280.481 630.361L280.481 602.743L283.08 604.584L283.08 632.203Z" fill="#727272"/>
-                      <rect id="Rectangle 3_30" x="271.816" y="630.361" width="27.6183" height="8.66458" transform="rotate(-90 271.816 630.361)" fill="#C4C4C4"/>
-                      <path id="Vector 44_30" d="M283.08 632.203L275.282 632.203L271.816 630.361L280.481 630.361L283.08 632.203Z" fill="#9C9C9C"/>
-                      </g>
+                    <g id="Group 2">
+                    <rect id="Rectangle 1" x="106" y="142.523" width="25" height="5.1046" fill="black"/>
+                    <path id="Rectangle 2" d="M106 131.022C106 127.683 106.836 124.396 108.433 121.463L110.861 117H126.833L129.125 121.914C130.36 124.561 131 127.447 131 130.368V142.523H106V131.022Z" fill="url(#paint0_linear)"/>
+                    </g>
+                    <g id="Group 6">
+                    <rect id="Rectangle 1_2" x="659.989" y="789.83" width="34.6583" height="7.5093" fill="black"/>
+                    <path id="Rectangle 2_2" d="M659.989 770.254C659.989 767.081 660.745 763.952 662.193 761.128L666.728 752.284H688.871L692.957 761.579C694.072 764.115 694.648 766.856 694.648 769.627V789.83H659.989V770.254Z" fill="url(#paint1_linear)"/>
+                    </g>
+                    <g id="Group 37">
+                    <rect id="Rectangle 1_3" x="16.8228" y="441.558" width="25.1235" height="5.66511" fill="black"/>
+                    <path id="Rectangle 2_3" d="M16.8228 427.807C16.8228 424.741 17.5275 421.716 18.8825 418.967L21.7079 413.233H37.7591L40.3704 419.415C41.4104 421.878 41.9463 424.524 41.9463 427.197V441.558H16.8228V427.807Z" fill="url(#paint2_linear)"/>
+                    </g>
+                    <g id="Group 3">
+                    <rect id="Rectangle 1_4" x="178" y="69.8042" width="24" height="4.90993" fill="black"/>
+                    <path id="Rectangle 2_4" d="M178 58.9276C178 55.5935 178.834 52.3122 180.425 49.3823L182.667 45.2546H198L200.132 49.8334C201.362 52.4771 202 55.358 202 58.2741V69.8042H178V58.9276Z" fill="url(#paint3_linear)"/>
+                    </g>
+                    <g id="Group 4">
+                    <rect id="Rectangle 1_5" x="475" y="222.301" width="23" height="4.90993" fill="black"/>
+                    <path id="Rectangle 2_5" d="M475 211.237C475 208.022 475.775 204.855 477.259 202.003L479.472 197.751H494.167L496.265 202.454C497.409 205.018 498 207.795 498 210.603V222.301H475V211.237Z" fill="url(#paint4_linear)"/>
+                    </g>
+                    <g id="Group 5">
+                    <rect id="Rectangle 1_6" x="431" y="88.5496" width="24" height="4.90993" fill="black"/>
+                    <path id="Rectangle 2_6" d="M431 77.673C431 74.3389 431.834 71.0576 433.425 68.1277L435.667 64H451L453.132 68.5788C454.362 71.2225 455 74.1034 455 77.0195V88.5496H431V77.673Z" fill="url(#paint5_linear)"/>
+                    </g>
+                    <g id="Group 7">
+                    <path id="Vector 45" d="M287.413 698L290.878 693.846H342.866L339.4 698H287.413Z" fill="#727272"/>
+                    <rect id="Rectangle 3" x="290.878" y="680" width="51.9875" height="13.8462" fill="#C4C4C4"/>
+                    <path id="Vector 44" d="M287.412 698V685.538L290.878 680V693.846L287.412 698Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 8">
+                    <path id="Vector 45_2" d="M178.239 720.225L180.08 717.626H207.698L205.857 720.225H178.239Z" fill="#727272"/>
+                    <rect id="Rectangle 3_2" x="180.08" y="708.961" width="27.6183" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_2" d="M178.239 720.225V712.427L180.08 708.961V717.626L178.239 720.225Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 11">
+                    <path id="Vector 45_3" d="M91.5931 664.772L93.6509 662.172H124.518L122.461 664.772H91.5931Z" fill="#727272"/>
+                    <rect id="Rectangle 3_3" x="93.6509" y="653.508" width="30.8675" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_3" d="M91.5931 664.772V656.974L93.6509 653.508V662.172L91.5931 664.772Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 12">
+                    <path id="Vector 45_4" d="M91.5931 751.418L93.6509 748.818H124.518L122.461 751.418H91.5931Z" fill="#727272"/>
+                    <rect id="Rectangle 3_4" x="93.6509" y="740.154" width="30.8675" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_4" d="M91.5931 751.418V743.619L93.6509 740.154V748.818L91.5931 751.418Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 13">
+                    <path id="Vector 45_5" d="M91.5931 843.262L93.6509 840.663H124.518L122.461 843.262H91.5931Z" fill="#727272"/>
+                    <rect id="Rectangle 3_5" x="93.6509" y="831.998" width="30.8675" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_5" d="M91.5931 843.262V835.464L93.6509 831.998V840.663L91.5931 843.262Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 9">
+                    <path id="Vector 45_6" d="M178.239 819.07L180.08 816.47H207.698L205.857 819.07H178.239Z" fill="#727272"/>
+                    <rect id="Rectangle 3_6" x="180.08" y="807.806" width="27.6183" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_6" d="M178.239 819.07V811.271L180.08 807.806V816.47L178.239 819.07Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 18">
+                    <path id="Vector 45_7" d="M490.164 961.1L492.005 958.501H519.623L517.782 961.1H490.164Z" fill="#727272"/>
+                    <rect id="Rectangle 3_7" x="492.005" y="949.836" width="27.6183" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_7" d="M490.164 961.1V953.302L492.005 949.836V958.501L490.164 961.1Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 19">
+                    <path id="Vector 45_8" d="M585.474 877.92L587.315 875.321H614.933L613.092 877.92H585.474Z" fill="#727272"/>
+                    <rect id="Rectangle 3_8" x="587.315" y="866.656" width="27.6183" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_8" d="M585.474 877.92V870.122L587.315 866.656V875.321L585.474 877.92Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 22">
+                    <path id="Vector 45_9" d="M585.474 1007.89L587.315 1005.29H614.933L613.092 1007.89H585.474Z" fill="#727272"/>
+                    <rect id="Rectangle 3_9" x="587.315" y="996.625" width="27.6183" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_9" d="M585.474 1007.89V1000.09L587.315 996.625V1005.29L585.474 1007.89Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 20">
+                    <path id="Vector 45_10" d="M585.474 782.61L587.315 780.011H614.933L613.092 782.61H585.474Z" fill="#727272"/>
+                    <rect id="Rectangle 3_10" x="587.315" y="771.346" width="27.6183" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_10" d="M585.474 782.61V774.812L587.315 771.346V780.011L585.474 782.61Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 21">
+                    <path id="Vector 45_11" d="M585.474 638.778L587.315 636.179H614.933L613.092 638.778H585.474Z" fill="#727272"/>
+                    <rect id="Rectangle 3_11" x="587.315" y="627.514" width="27.6183" height="8.66458" fill="#C4C4C4"/>
+                    <path id="Vector 44_11" d="M585.474 638.778V630.98L587.315 627.514V636.179L585.474 638.778Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 14">
+                    <path id="Vector 45_12" d="M175.838 1017.42L173.239 1015.58L173.239 987.96L175.838 989.802L175.838 1017.42Z" fill="#727272"/>
+                    <rect id="Rectangle 3_12" x="164.574" y="1015.58" width="27.6183" height="8.66458" transform="rotate(-90 164.574 1015.58)" fill="#C4C4C4"/>
+                    <path id="Vector 44_12" d="M175.838 1017.42L168.04 1017.42L164.574 1015.58L173.239 1015.58L175.838 1017.42Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 15">
+                    <path id="Vector 45_13" d="M581.142 1001.82L578.542 999.983L578.542 972.364L581.142 974.205L581.142 1001.82Z" fill="#727272"/>
+                    <rect id="Rectangle 3_13" x="569.878" y="999.983" width="27.6183" height="8.66458" transform="rotate(-90 569.878 999.983)" fill="#C4C4C4"/>
+                    <path id="Vector 44_13" d="M581.142 1001.82L573.343 1001.82L569.878 999.983L578.542 999.983L581.142 1001.82Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 16">
+                    <path id="Vector 45_14" d="M352.397 901.315L349.797 899.473L349.797 871.855L352.397 873.696L352.397 901.315Z" fill="#727272"/>
+                    <rect id="Rectangle 3_14" x="341.133" y="899.473" width="27.6183" height="8.66458" transform="rotate(-90 341.133 899.473)" fill="#C4C4C4"/>
+                    <path id="Vector 44_14" d="M352.397 901.315L344.599 901.315L341.133 899.473L349.797 899.473L352.397 901.315Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 17">
+                    <path id="Vector 45_15" d="M352.397 802.539L349.797 800.697L349.797 773.079L352.397 774.92L352.397 802.539Z" fill="#727272"/>
+                    <rect id="Rectangle 3_15" x="341.133" y="800.697" width="27.6183" height="8.66458" transform="rotate(-90 341.133 800.697)" fill="#C4C4C4"/>
+                    <path id="Vector 44_15" d="M352.397 802.539L344.599 802.539L341.133 800.697L349.797 800.697L352.397 802.539Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 23">
+                    <path id="Vector 45_16" d="M272.264 677.769L269.665 675.927L269.665 648.309L272.264 650.15L272.264 677.769Z" fill="#727272"/>
+                    <rect id="Rectangle 3_16" x="261" y="675.927" width="27.6183" height="8.66458" transform="rotate(-90 261 675.927)" fill="#C4C4C4"/>
+                    <path id="Vector 44_16" d="M272.264 677.769L264.466 677.769L261 675.927L269.665 675.927L272.264 677.769Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 24">
+                    <path id="Vector 45_17" d="M272.264 594.589L269.665 592.747L269.665 565.129L272.264 566.97L272.264 594.589Z" fill="#727272"/>
+                    <rect id="Rectangle 3_17" x="261" y="592.747" width="27.6183" height="8.66458" transform="rotate(-90 261 592.747)" fill="#C4C4C4"/>
+                    <path id="Vector 44_17" d="M272.264 594.589L264.466 594.589L261 592.747L269.665 592.747L272.264 594.589Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 26">
+                    <path id="Vector 45_18" d="M365.397 578.992L362.797 577.151L362.797 549.533L365.397 551.374L365.397 578.992Z" fill="#727272"/>
+                    <rect id="Rectangle 3_18" x="354.133" y="577.151" width="27.6183" height="8.66458" transform="rotate(-90 354.133 577.151)" fill="#C4C4C4"/>
+                    <path id="Vector 44_18" d="M365.397 578.992L357.599 578.992L354.133 577.151L362.797 577.151L365.397 578.992Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 28">
+                    <path id="Vector 45_19" d="M344.599 322.521L342.999 321.221L342.999 301.726L344.599 303.026L344.599 322.521Z" fill="#727272"/>
+                    <rect id="Rectangle 3_19" x="337.667" y="321.221" width="19.4953" height="5.33205" transform="rotate(-90 337.667 321.221)" fill="#C4C4C4"/>
+                    <path id="Vector 44_19" d="M344.599 322.521L339.8 322.521L337.667 321.221L342.999 321.221L344.599 322.521Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 29">
+                    <path id="Vector 45_20" d="M356.729 261.869L355.129 260.569L355.129 241.074L356.729 242.374L356.729 261.869Z" fill="#727272"/>
+                    <rect id="Rectangle 3_20" x="349.797" y="260.569" width="19.4953" height="5.33205" transform="rotate(-90 349.797 260.569)" fill="#C4C4C4"/>
+                    <path id="Vector 44_20" d="M356.729 261.869L351.93 261.869L349.797 260.569L355.129 260.569L356.729 261.869Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 30">
+                    <path id="Vector 45_21" d="M290.878 147.497L289.279 146.197L289.279 126.702L290.878 128.001L290.878 147.497Z" fill="#727272"/>
+                    <rect id="Rectangle 3_21" x="283.947" y="146.197" width="19.4953" height="5.33205" transform="rotate(-90 283.947 146.197)" fill="#C4C4C4"/>
+                    <path id="Vector 44_21" d="M290.878 147.497L286.079 147.497L283.947 146.197L289.279 146.197L290.878 147.497Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 31">
+                    <path id="Vector 45_22" d="M349.797 157.894L348.198 156.594L348.198 137.099L349.797 138.399L349.797 157.894Z" fill="#727272"/>
+                    <rect id="Rectangle 3_22" x="342.866" y="156.594" width="19.4953" height="5.33205" transform="rotate(-90 342.866 156.594)" fill="#C4C4C4"/>
+                    <path id="Vector 44_22" d="M349.797 157.894L344.999 157.894L342.866 156.594L348.198 156.594L349.797 157.894Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 32">
+                    <path id="Vector 45_23" d="M330.735 192.552L332.143 190.553H353.263L351.855 192.552H330.735Z" fill="#727272"/>
+                    <rect id="Rectangle 3_23" x="332.143" y="183.888" width="21.1199" height="6.66506" fill="#C4C4C4"/>
+                    <path id="Vector 44_23" d="M330.735 192.552V186.554L332.143 183.888V190.553L330.735 192.552Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 33">
+                    <path id="Vector 45_24" d="M330.735 192.552L332.143 190.553H353.263L351.855 192.552H330.735Z" fill="#727272"/>
+                    <rect id="Rectangle 3_24" x="332.143" y="183.888" width="21.1199" height="6.66506" fill="#C4C4C4"/>
+                    <path id="Vector 44_24" d="M330.735 192.552V186.554L332.143 183.888V190.553L330.735 192.552Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 34">
+                    <path id="Vector 45_25" d="M257.953 152.695L259.469 150.696H282.214L280.697 152.695H257.953Z" fill="#727272"/>
+                    <rect id="Rectangle 3_25" x="259.469" y="144.031" width="22.7445" height="6.66506" fill="#C4C4C4"/>
+                    <path id="Vector 44_25" d="M257.953 152.695V146.697L259.469 144.031V150.696L257.953 152.695Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 35">
+                    <path id="Vector 45_26" d="M257.953 241.074L259.469 239.074H282.214L280.697 241.074H257.953Z" fill="#727272"/>
+                    <rect id="Rectangle 3_26" x="259.469" y="232.409" width="22.7445" height="6.66506" fill="#C4C4C4"/>
+                    <path id="Vector 44_26" d="M257.953 241.074V235.075L259.469 232.409V239.074L257.953 241.074Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 36">
+                    <path id="Vector 45_27" d="M389.654 223.745L391.279 221.745H415.648L414.024 223.745H389.654Z" fill="#727272"/>
+                    <rect id="Rectangle 3_27" x="391.279" y="215.08" width="24.3691" height="6.66506" fill="#C4C4C4"/>
+                    <path id="Vector 44_27" d="M389.654 223.745V217.746L391.279 215.08V221.745L389.654 223.745Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 27">
+                    <path id="Vector 45_28" d="M365.397 656.974L362.797 655.132L362.797 627.514L365.397 629.355L365.397 656.974Z" fill="#727272"/>
+                    <rect id="Rectangle 3_28" x="354.133" y="655.132" width="27.6183" height="8.66458" transform="rotate(-90 354.133 655.132)" fill="#C4C4C4"/>
+                    <path id="Vector 44_28" d="M365.397 656.974L357.599 656.974L354.133 655.132L362.797 655.132L365.397 656.974Z" fill="#9C9C9C"/>
+                    </g>
+                    <g id="Group 25">
+                    <path id="Vector 45_29" d="M272.264 632.203L269.665 630.361L269.665 602.743L272.264 604.584L272.264 632.203Z" fill="#727272"/>
+                    <rect id="Rectangle 3_29" x="261" y="630.361" width="27.6183" height="8.66458" transform="rotate(-90 261 630.361)" fill="#C4C4C4"/>
+                    <path id="Vector 44_29" d="M272.264 632.203L264.466 632.203L261 630.361L269.665 630.361L272.264 632.203Z" fill="#9C9C9C"/>
+                    </g>
                   </g>
                   <g id="province">
-                      <rect id="Rectangle 4" x="52.7913" y="51.6584" width="50.7249" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 10" x="460.679" y="262.992" width="53.6806" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 11" x="283.337" y="183.187" width="40.3799" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 12" x="456.245" y="29.4906" width="28.5571" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 13" x="338.017" y="29.4906" width="31.5128" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 6" x="199.099" y="101.905" width="38.9021" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 9" x="336.539" y="330.973" width="37.4242" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 7" x="129.64" y="274.814" width="68.4591" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 8" x="230.5" y="408.5" width="62.5477" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 19" x="69.0477" y="500.926" width="55.1585" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 5" x="76.437" y="211.267" width="28.5571" height="18.2121" stroke="black"/>
-                      <rect id="Rectangle 14" x="334.451" y="1163" width="53.6806" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 17" x="123.728" y="1170.39" width="64.0256" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 18" x="121.25" y="854.133" width="61.0699" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 15" x="334.451" y="1102.41" width="46.2913" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 16" x="238.567" y="1046.25" width="55.1585" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 20" x="250.39" y="928.026" width="43.3356" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 21" x="244.001" y="875.867" width="50.7249" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 23" x="350.5" y="658.5" width="41" height="19" stroke="black"/>
-                      <rect id="Rectangle 22" x="246.957" y="746.206" width="47.7692" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 24" x="546.527" y="712.259" width="40.3799" height="19.69" stroke="black"/>
-                      <rect id="Rectangle 25" x="619.809" y="923.115" width="44.8135" height="19.69" stroke="black"/>
-                      <text id="&#224;&#185;&#128;&#224;&#184;&#138;&#224;&#184;&#181;&#224;&#184;&#162;&#224;&#184;&#135;&#224;&#185;&#131;&#224;&#184;&#171;&#224;&#184;&#161;&#224;&#185;&#136;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="56.7249" y="65.2392">&#xe40;&#xe0a;&#xe35;&#xe22;&#xe07;&#xe43;&#xe2b;&#xe21;&#xe48;</tspan></text>
-                      <text id="&#224;&#184;&#158;&#224;&#184;&#180;&#224;&#184;&#169;&#224;&#184;&#147;&#224;&#184;&#184;&#224;&#185;&#130;&#224;&#184;&#165;&#224;&#184;&#129;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="464.613" y="276.572">&#xe1e;&#xe34;&#xe29;&#xe13;&#xe38;&#xe42;&#xe25;&#xe01;</tspan></text>
-                      <text id="&#224;&#184;&#158;&#224;&#184;&#180;&#224;&#184;&#136;&#224;&#184;&#180;&#224;&#184;&#149;&#224;&#184;&#163;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="340.473" y="344.554">&#xe1e;&#xe34;&#xe08;&#xe34;&#xe15;&#xe23;</tspan></text>
-                      <text id="&#224;&#184;&#165;&#224;&#184;&#179;&#224;&#184;&#155;&#224;&#184;&#178;&#224;&#184;&#135;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="203.032" y="115.486">&#xe25;&#xe33;&#xe1b;&#xe32;&#xe07;</tspan></text>
-                      <text id="&#224;&#184;&#129;&#224;&#184;&#179;&#224;&#185;&#129;&#224;&#184;&#158;&#224;&#184;&#135;&#224;&#185;&#128;&#224;&#184;&#158;&#224;&#184;&#138;&#224;&#184;&#163;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="133.573" y="288.395">&#xe01;&#xe33;&#xe41;&#xe1e;&#xe07;&#xe40;&#xe1e;&#xe0a;&#xe23;</tspan></text>
-                      <text id="&#224;&#184;&#153;&#224;&#184;&#132;&#224;&#184;&#163;&#224;&#184;&#170;&#224;&#184;&#167;&#224;&#184;&#163;&#224;&#184;&#163;&#224;&#184;&#132;&#224;&#185;&#140;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="234.434" y="422.081">&#xe19;&#xe04;&#xe23;&#xe2a;&#xe27;&#xe23;&#xe23;&#xe04;&#xe4c;</tspan></text>
-                      <text id="&#224;&#184;&#173;&#224;&#184;&#184;&#224;&#184;&#151;&#224;&#184;&#177;&#224;&#184;&#162;&#224;&#184;&#152;&#224;&#184;&#178;&#224;&#184;&#153;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="75.937" y="514.507">&#xe2d;&#xe38;&#xe17;&#xe31;&#xe22;&#xe18;&#xe32;&#xe19;&#xe35;</tspan></text>
-                      <text id="&#224;&#184;&#170;&#224;&#184;&#184;&#224;&#185;&#130;&#224;&#184;&#130;&#224;&#184;&#151;&#224;&#184;&#177;&#224;&#184;&#162;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="287.27" y="196.768">&#xe2a;&#xe38;&#xe42;&#xe02;&#xe17;&#xe31;&#xe22;</tspan></text>
-                      <text id="&#224;&#184;&#153;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#153;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="460.179" y="43.0714">&#xe19;&#xe48;&#xe32;&#xe19;</tspan></text>
-                      <text id="&#224;&#185;&#129;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#185;&#136;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="341.951" y="43.0714">&#xe41;&#xe1e;&#xe23;&#xe48;</tspan></text>
-                      <text id="&#224;&#184;&#149;&#224;&#184;&#178;&#224;&#184;&#129;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="80.3706" y="223.37">&#xe15;&#xe32;&#xe01;</tspan></text>
-                      <text id="&#224;&#184;&#129;&#224;&#184;&#163;&#224;&#184;&#184;&#224;&#184;&#135;&#224;&#185;&#128;&#224;&#184;&#151;&#224;&#184;&#158;&#224;&#184;&#175;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="338.384" y="1176.59">&#xe01;&#xe23;&#xe38;&#xe07;&#xe40;&#xe17;&#xe1e;&#xe2f;</tspan></text>
-                      <text id="&#224;&#184;&#170;&#224;&#184;&#161;&#224;&#184;&#184;&#224;&#184;&#151;&#224;&#184;&#163;&#224;&#184;&#170;&#224;&#184;&#178;&#224;&#184;&#132;&#224;&#184;&#163;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="129.14" y="1183.97">&#xe2a;&#xe21;&#xe38;&#xe17;&#xe23;&#xe2a;&#xe32;&#xe04;&#xe23;</tspan></text>
-                      <text id="&#224;&#184;&#170;&#224;&#184;&#184;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#163;&#224;&#184;&#147;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="125.184" y="867.714">&#xe2a;&#xe38;&#xe1e;&#xe23;&#xe23;&#xe13;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
-                      <text id="&#224;&#184;&#153;&#224;&#184;&#153;&#224;&#184;&#151;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="338.384" y="1115.99">&#xe19;&#xe19;&#xe17;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
-                      <text id="&#224;&#184;&#155;&#224;&#184;&#151;&#224;&#184;&#184;&#224;&#184;&#161;&#224;&#184;&#152;&#224;&#184;&#178;&#224;&#184;&#153;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="245.457" y="1059.83">&#xe1b;&#xe17;&#xe38;&#xe21;&#xe18;&#xe32;&#xe19;&#xe35;</tspan></text>
-                      <text id="&#224;&#184;&#173;&#224;&#184;&#162;&#224;&#184;&#184;&#224;&#184;&#152;&#224;&#184;&#162;&#224;&#184;&#178;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="254.324" y="941.607">&#xe2d;&#xe22;&#xe38;&#xe18;&#xe22;&#xe32;</tspan></text>
-                      <text id="&#224;&#184;&#173;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#151;&#224;&#184;&#173;&#224;&#184;&#135;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="249.412" y="889.448">&#xe2d;&#xe48;&#xe32;&#xe07;&#xe17;&#xe2d;&#xe07;</tspan></text>
-                      <text id="&#224;&#184;&#138;&#224;&#184;&#177;&#224;&#184;&#162;&#224;&#184;&#153;&#224;&#184;&#178;&#224;&#184;&#151;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="354.818" y="671.593">&#xe0a;&#xe31;&#xe22;&#xe19;&#xe32;&#xe17;</tspan></text>
-                      <text id="&#224;&#184;&#170;&#224;&#184;&#180;&#224;&#184;&#135;&#224;&#184;&#171;&#224;&#185;&#140;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="253.846" y="759.786">&#xe2a;&#xe34;&#xe07;&#xe2b;&#xe4c;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
-                      <text id="&#224;&#184;&#165;&#224;&#184;&#158;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="551.939" y="725.84">&#xe25;&#xe1e;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
-                      <text id="&#224;&#184;&#170;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="626.699" y="936.695">&#xe2a;&#xe23;&#xe30;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
+                    <text id="&#224;&#185;&#128;&#224;&#184;&#138;&#224;&#184;&#181;&#224;&#184;&#162;&#224;&#184;&#135;&#224;&#185;&#131;&#224;&#184;&#171;&#224;&#184;&#161;&#224;&#185;&#136;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="56.7249" y="65.2392">&#xe40;&#xe0a;&#xe35;&#xe22;&#xe07;&#xe43;&#xe2b;&#xe21;&#xe48;</tspan></text>
+                    <text id="&#224;&#184;&#158;&#224;&#184;&#180;&#224;&#184;&#169;&#224;&#184;&#147;&#224;&#184;&#184;&#224;&#185;&#130;&#224;&#184;&#165;&#224;&#184;&#129;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="464.613" y="276.572">&#xe1e;&#xe34;&#xe29;&#xe13;&#xe38;&#xe42;&#xe25;&#xe01;</tspan></text>
+                    <text id="&#224;&#184;&#158;&#224;&#184;&#180;&#224;&#184;&#136;&#224;&#184;&#180;&#224;&#184;&#149;&#224;&#184;&#163;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="340.473" y="344.554">&#xe1e;&#xe34;&#xe08;&#xe34;&#xe15;&#xe23;</tspan></text>
+                    <text id="&#224;&#184;&#165;&#224;&#184;&#179;&#224;&#184;&#155;&#224;&#184;&#178;&#224;&#184;&#135;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="203.032" y="115.486">&#xe25;&#xe33;&#xe1b;&#xe32;&#xe07;</tspan></text>
+                    <text id="&#224;&#184;&#129;&#224;&#184;&#179;&#224;&#185;&#129;&#224;&#184;&#158;&#224;&#184;&#135;&#224;&#185;&#128;&#224;&#184;&#158;&#224;&#184;&#138;&#224;&#184;&#163;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="142.434" y="354.081">&#xe01;&#xe33;&#xe41;&#xe1e;&#xe07;&#xe40;&#xe1e;&#xe0a;&#xe23;</tspan></text>
+                    <text id="&#224;&#184;&#153;&#224;&#184;&#132;&#224;&#184;&#163;&#224;&#184;&#170;&#224;&#184;&#167;&#224;&#184;&#163;&#224;&#184;&#163;&#224;&#184;&#132;&#224;&#185;&#140;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="234.434" y="422.081">&#xe19;&#xe04;&#xe23;&#xe2a;&#xe27;&#xe23;&#xe23;&#xe04;&#xe4c;</tspan></text>
+                    <text id="&#224;&#184;&#173;&#224;&#184;&#184;&#224;&#184;&#151;&#224;&#184;&#177;&#224;&#184;&#162;&#224;&#184;&#152;&#224;&#184;&#178;&#224;&#184;&#153;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="199.389" y="510.507">&#xe2d;&#xe38;&#xe17;&#xe31;&#xe22;&#xe18;&#xe32;&#xe19;&#xe35;</tspan></text>
+                    <text id="&#224;&#184;&#170;&#224;&#184;&#184;&#224;&#185;&#130;&#224;&#184;&#130;&#224;&#184;&#151;&#224;&#184;&#177;&#224;&#184;&#162;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="287.27" y="196.768">&#xe2a;&#xe38;&#xe42;&#xe02;&#xe17;&#xe31;&#xe22;</tspan></text>
+                    <text id="&#224;&#184;&#153;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#153;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="460.179" y="43.0714">&#xe19;&#xe48;&#xe32;&#xe19;</tspan></text>
+                    <text id="&#224;&#185;&#129;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#185;&#136;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="341.951" y="43.0714">&#xe41;&#xe1e;&#xe23;&#xe48;</tspan></text>
+                    <text id="&#224;&#184;&#149;&#224;&#184;&#178;&#224;&#184;&#129;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="80.3706" y="223.37">&#xe15;&#xe32;&#xe01;</tspan></text>
+                    <text id="&#224;&#184;&#129;&#224;&#184;&#163;&#224;&#184;&#184;&#224;&#184;&#135;&#224;&#185;&#128;&#224;&#184;&#151;&#224;&#184;&#158;&#224;&#184;&#175;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="338.384" y="1176.59">&#xe01;&#xe23;&#xe38;&#xe07;&#xe40;&#xe17;&#xe1e;&#xe2f;</tspan></text>
+                    <text id="&#224;&#184;&#170;&#224;&#184;&#161;&#224;&#184;&#184;&#224;&#184;&#151;&#224;&#184;&#163;&#224;&#184;&#170;&#224;&#184;&#178;&#224;&#184;&#132;&#224;&#184;&#163;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="129.14" y="1183.97">&#xe2a;&#xe21;&#xe38;&#xe17;&#xe23;&#xe2a;&#xe32;&#xe04;&#xe23;</tspan></text>
+                    <text id="&#224;&#184;&#170;&#224;&#184;&#184;&#224;&#184;&#158;&#224;&#184;&#163;&#224;&#184;&#163;&#224;&#184;&#147;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="125.184" y="867.714">&#xe2a;&#xe38;&#xe1e;&#xe23;&#xe23;&#xe13;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
+                    <text id="&#224;&#184;&#153;&#224;&#184;&#153;&#224;&#184;&#151;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="338.384" y="1101.99">&#xe19;&#xe19;&#xe17;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
+                    <text id="&#224;&#184;&#155;&#224;&#184;&#151;&#224;&#184;&#184;&#224;&#184;&#161;&#224;&#184;&#152;&#224;&#184;&#178;&#224;&#184;&#153;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="245.457" y="1059.83">&#xe1b;&#xe17;&#xe38;&#xe21;&#xe18;&#xe32;&#xe19;&#xe35;</tspan></text>
+                    <text id="&#224;&#184;&#173;&#224;&#184;&#162;&#224;&#184;&#184;&#224;&#184;&#152;&#224;&#184;&#162;&#224;&#184;&#178;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="254.324" y="941.607">&#xe2d;&#xe22;&#xe38;&#xe18;&#xe22;&#xe32;</tspan></text>
+                    <text id="&#224;&#184;&#173;&#224;&#185;&#136;&#224;&#184;&#178;&#224;&#184;&#135;&#224;&#184;&#151;&#224;&#184;&#173;&#224;&#184;&#135;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="249.412" y="889.448">&#xe2d;&#xe48;&#xe32;&#xe07;&#xe17;&#xe2d;&#xe07;</tspan></text>
+                    <text id="&#224;&#184;&#138;&#224;&#184;&#177;&#224;&#184;&#162;&#224;&#184;&#153;&#224;&#184;&#178;&#224;&#184;&#151;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="422.818" y="672.593">&#xe0a;&#xe31;&#xe22;&#xe19;&#xe32;&#xe17;</tspan></text>
+                    <text id="&#224;&#184;&#170;&#224;&#184;&#180;&#224;&#184;&#135;&#224;&#184;&#171;&#224;&#185;&#140;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="253.846" y="759.786">&#xe2a;&#xe34;&#xe07;&#xe2b;&#xe4c;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
+                    <text id="&#224;&#184;&#165;&#224;&#184;&#158;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="471.911" y="765.081">&#xe25;&#xe1e;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
+                    <text id="&#224;&#184;&#170;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="626.699" y="936.695">&#xe2a;&#xe23;&#xe30;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
+                    <rect id="Rectangle 11" x="283.337" y="183.187" width="40.3799" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 12" x="456.245" y="29.4906" width="28.5571" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 13" x="338.017" y="29.4906" width="31.5128" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 6" x="199.099" y="101.905" width="38.9021" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 9" x="336.539" y="330.973" width="37.4242" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 7" x="138.5" y="340.5" width="68.4591" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 8" x="230.5" y="408.5" width="62.5477" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 19" x="192.5" y="496.926" width="55.1585" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 4" x="52.7913" y="51.6584" width="50.7249" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 10" x="460.679" y="262.992" width="53.6806" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 5" x="76.437" y="211.267" width="28.5571" height="18.2121" stroke="black"/>
+                    <rect id="Rectangle 14" x="334.451" y="1163" width="53.6806" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 17" x="123.728" y="1170.39" width="64.0256" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 18" x="121.25" y="854.133" width="61.0699" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 15" x="334.451" y="1088.41" width="46.2913" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 16" x="238.567" y="1046.25" width="55.1585" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 20" x="250.39" y="928.026" width="43.3356" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 21" x="244.001" y="875.867" width="50.7249" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 23" x="418.5" y="659.5" width="41" height="19" stroke="black"/>
+                    <rect id="Rectangle 22" x="246.957" y="746.206" width="47.7692" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 24" x="466.5" y="751.5" width="40.3799" height="19.69" stroke="black"/>
+                    <rect id="Rectangle 25" x="619.809" y="923.115" width="44.8135" height="19.69" stroke="black"/>
                   </g>
-                  <g id="meter">
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 27" x="112.068" y="166.482" width="9" height="9" rx="2" transform="rotate(-45 112.068 166.482)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 34" x="183.586" y="112" width="9" height="9" rx="2" transform="rotate(-45 183.586 112)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 35" x="264.586" y="194" width="9" height="9" rx="2" transform="rotate(-45 264.586 194)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 37" x="319.586" y="341" width="9" height="9" rx="2" transform="rotate(-45 319.586 341)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 38" x="438.586" y="251" width="9" height="9" rx="2" transform="rotate(-45 438.586 251)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 41" x="319.586" y="39.9999" width="9" height="9" rx="2" transform="rotate(-45 319.586 39.9999)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 39" x="388.586" y="306" width="9" height="9" rx="2" transform="rotate(-45 388.586 306)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 40" x="378.586" y="379" width="9" height="9" rx="2" transform="rotate(-45 378.586 379)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 36" x="436.586" y="38.9999" width="9" height="9" rx="2" transform="rotate(-45 436.586 38.9999)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 33" x="112.068" y="61.9999" width="9" height="9" rx="2" transform="rotate(-45 112.068 61.9999)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 28" x="112.068" y="220" width="9" height="9" rx="2" transform="rotate(-45 112.068 220)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 29" x="112.068" y="285" width="9" height="9" rx="2" transform="rotate(-45 112.068 285)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 30" x="118.586" y="366" width="9" height="9" rx="2" transform="rotate(-45 118.586 366)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 31" x="201.586" y="393" width="9" height="9" rx="2" transform="rotate(-45 201.586 393)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 42" x="90.5858" y="484" width="9" height="9" rx="2" transform="rotate(-45 90.5858 484)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 43" x="305.586" y="481" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 481)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 62" x="305.586" y="396.505" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 396.505)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 44" x="305.586" y="577" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 577)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 45" x="305.586" y="614" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 614)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 46" x="305.586" y="660" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 660)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 49" x="305.586" y="756" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 756)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 50" x="305.586" y="886" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 886)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 51" x="305.586" y="937" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 937)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 52" x="305.586" y="1056" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1056)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 59" x="671.586" y="933" width="8.3" height="8.3" rx="2" transform="rotate(-45 671.586 933)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 60" x="595.586" y="986" width="9" height="9" rx="2" transform="rotate(-45 595.586 986)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 61" x="499.586" y="986" width="9" height="9" rx="2" transform="rotate(-45 499.586 986)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 53" x="305.586" y="1111" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1111)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 54" x="305.586" y="1171" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1171)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 55" x="101.586" y="1179.45" width="9" height="9" rx="2" transform="rotate(-45 101.586 1179.45)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 56" x="101.586" y="864.455" width="9" height="9" rx="2" transform="rotate(-45 101.586 864.455)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 57" x="187.586" y="864.455" width="9" height="9" rx="2" transform="rotate(-45 187.586 864.455)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 58" x="187.586" y="698.455" width="9" height="9" rx="2" transform="rotate(-45 187.586 698.455)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 47" x="397.586" y="667.95" width="9.4" height="9.4" rx="2" transform="rotate(-45 397.586 667.95)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 48" x="594.586" y="722.95" width="9" height="9" rx="2" transform="rotate(-45 594.586 722.95)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                  <g id="meWr">
+                    <rect className="cursor-pointer relative" fill={fillCheck('PIN001')} onClick={() => logger('PIN001')} id="PIN001" x="112.068" y="166.482" width="9" height="9" rx="2" transform="rotate(-45 112.068 166.482)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('WAN005')} onClick={() => logger('WAN005')} id="WAN005" x="183.586" y="112" width="9" height="9" rx="2" transform="rotate(-45 183.586 112)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('DAM4')} onClick={() => logger('DAM4')} id="DAM4" x="183.586" y="58.364" width="9" height="9" rx="2" transform="rotate(-45 183.586 58.364)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('DAM1')} onClick={() => logger('DAM1')} id="DAM1" x="111.586" y="130.364" width="9" height="9" rx="2" transform="rotate(-45 111.586 130.364)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('YOM012')} onClick={() => logger('YOM012')} id="YOM012" x="264.586" y="194" width="9" height="9" rx="2" transform="rotate(-45 264.586 194)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('YOM008')} onClick={() => logger('YOM008')} id="YOM008" x="319.586" y="313.95" width="9" height="9" rx="2" transform="rotate(-45 319.586 313.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('NAN012')} onClick={() => logger('NAN012')} id="NAN012" x="438.586" y="251" width="9" height="9" rx="2" transform="rotate(-45 438.586 251)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('NAN004')} onClick={() => logger('NAN004')} id="NAN004" x="397.586" y="190.95" width="9" height="9" rx="2" transform="rotate(-45 397.586 190.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('DIV001')} onClick={() => logger('DIV001')} id="DIV001" x="323.586" y="147.95" width="8" height="8" rx="2" transform="rotate(-45 323.586 147.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('DIV002')} onClick={() => logger('DIV002')} id="DIV002" x="318.586" y="260.95" width="8" height="8" rx="2" transform="rotate(-45 318.586 260.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('YOM010')} onClick={() => logger('YOM010')} id="YOM010" x="319.586" y="40" width="9" height="9" rx="2" transform="rotate(-45 319.586 40)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('NAN006')} onClick={() => logger('NAN006')} id="NAN006" x="388.586" y="306" width="9" height="9" rx="2" transform="rotate(-45 388.586 306)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('NAN008')} onClick={() => logger('NAN008')} id="NAN008" x="378.586" y="379" width="9" height="9" rx="2" transform="rotate(-45 378.586 379)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('NAN003')} onClick={() => logger('NAN003')} id="NAN003" x="436.586" y="38.9999" width="9" height="9" rx="2" transform="rotate(-45 436.586 38.9999)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('DAM2')} onClick={() => logger('DAM2')} id="DAM2" x="436.586" y="77.364" width="9" height="9" rx="2" transform="rotate(-45 436.586 77.364)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('DAM41')} onClick={() => logger('DAM41')} id="DAM41" x="479.586" y="211.364" width="9" height="9" rx="2" transform="rotate(-45 479.586 211.364)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('CHM002')} onClick={() => logger('CHM002')} id="CHM002" x="112.068" y="62" width="9" height="9" rx="2" transform="rotate(-45 112.068 62)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('PIN002')} onClick={() => logger('PIN002')} id="PIN002" x="112.068" y="220" width="9" height="9" rx="2" transform="rotate(-45 112.068 220)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('PIN003')} onClick={() => logger('PIN003')} id="PIN003" x="112.068" y="285" width="9" height="9" rx="2" transform="rotate(-45 112.068 285)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('PIN006')} onClick={() => logger('PIN006')} id="PIN006" x="118.586" y="366" width="9" height="9" rx="2" transform="rotate(-45 118.586 366)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('SKG002')} onClick={() => logger('SKG002')} id="SKG002" x="213.586" y="484" width="9" height="9" rx="2" transform="rotate(-45 213.586 484)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('DAM25')} onClick={() => logger('DAM25')} id="DAM25" x="22.5858" y="429.364" width="9" height="9" rx="2" transform="rotate(-45 22.5858 429.364)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('C2')} onClick={() => logger('C2')} id="C2" x="305.586" y="441.505" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 441.505)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('CPY001')} onClick={() => logger('CPY001')} id="CPY001" x="305.586" y="396.505" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 396.505)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('C13')} onClick={() => logger('C13')} id="C13" x="305.586" y="664.505" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 664.505)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('CPY005')} onClick={() => logger('CPY005')} id="CPY005" x="305.586" y="756" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 756)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('CPY008')} onClick={() => logger('CPY008')} id="CPY008" x="305.586" y="886" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 886)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('C29')} onClick={() => logger('C29')} id="C29" x="305.586" y="937" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 937)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('PAS006')} onClick={() => logger('PAS006')} id="PAS006" x="671.586" y="933" width="8.3" height="8.3" rx="2" transform="rotate(-45 671.586 933)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('LBI001')} onClick={() => logger('LBI001')} id="LBI001" x="499.586" y="986" width="9" height="9" rx="2" transform="rotate(-45 499.586 986)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('CPY014')} onClick={() => logger('CPY014')} id="CPY014" x="305.586" y="1097" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1097)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('GLF001')} onClick={() => logger('GLF001')} id="GLF001" x="305.586" y="1171" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1171)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('GLF002')} onClick={() => logger('GLF002')} id="GLF002" x="101.586" y="1179.45" width="9" height="9" rx="2" transform="rotate(-45 101.586 1179.45)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG14')} onClick={() => logger('ATG14')} id="ATG14" x="101.586" y="821.95" width="9" height="9" rx="2" transform="rotate(-45 101.586 821.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG13')} onClick={() => logger('ATG13')} id="ATG13" x="101.586" y="729.95" width="9" height="9" rx="2" transform="rotate(-45 101.586 729.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG12')} onClick={() => logger('ATG12')} id="ATG12" x="101.586" y="642.95" width="9" height="9" rx="2" transform="rotate(-45 101.586 642.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG17')} onClick={() => logger('ATG17')} id="ATG17" x="142.586" y="1000.95" width="9" height="9" rx="2" transform="rotate(-45 142.586 1000.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG16')} onClick={() => logger('ATG16')} id="ATG16" x="187.586" y="797.95" width="9" height="9" rx="2" transform="rotate(-45 187.586 797.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG15')} onClick={() => logger('ATG15')} id="ATG15" x="187.586" y="698.455" width="9" height="9" rx="2" transform="rotate(-45 187.586 698.455)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG03')} onClick={() => logger('ATG03')} id="ATG03" x="280.586" y="663.95" width="9" height="9" rx="2" transform="rotate(-45 280.586 663.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG01')} onClick={() => logger('ATG01')} id="ATG01" x="280.586" y="616.95" width="9" height="9" rx="2" transform="rotate(-45 280.586 616.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG04')} onClick={() => logger('ATG04')} id="ATG04" x="280.586" y="581.95" width="9" height="9" rx="2" transform="rotate(-45 280.586 581.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG02')} onClick={() => logger('ATG02')} id="ATG02" x="334.586" y="563.95" width="9" height="9" rx="2" transform="rotate(-45 334.586 563.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG11')} onClick={() => logger('ATG11')} id="ATG11" x="334.586" y="640.95" width="9" height="9" rx="2" transform="rotate(-45 334.586 640.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('LBI002')} onClick={() => logger('LBI002')} id="LBI002" x="480.586" y="787.233" width="9.4" height="9.4" rx="2" transform="rotate(-45 480.586 787.233)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('ATG18')} onClick={() => logger('ATG18')} id="ATG18" x="594.586" y="615.95" width="9" height="9" rx="2" transform="rotate(-45 594.586 615.95)" stroke="white" strokeWidth="2"/>
+                    <rect className="cursor-pointer relative" fill={fillCheck('DAM19')} onClick={() => logger('DAM19')} id="DAM19" x="669.586" y="773.071" width="10" height="10" rx="2" transform="rotate(-45 669.586 773.071)" stroke="white" strokeWidth="2"/>
                   </g>
               </g>
               <defs>
@@ -485,61 +640,71 @@ const Page = () => {
       </div>
 
       {/* Header */}
-      <div className="fixed top-0 right-0 mr-10 mt-16 border-2 border-blue-300 border-dashed p-4 px-6">
-          <svg width="210" height="142" viewBox="0 0 210 142" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12.4887 43.061C8.75873 43.061 5.94461 42.2284 4.04633 40.5632C2.14805 38.8981 1.19891 36.4669 1.19891 33.2698V31.2717C1.19891 29.9062 1.38208 28.7906 1.74842 27.9247C2.11475 27.0255 2.56434 26.2096 3.09719 25.4769C3.63004 24.7442 4.06298 24.0948 4.39601 23.5287C4.76235 22.9292 4.94552 22.3131 4.94552 21.6803C4.94552 21.0809 4.79565 20.6646 4.49592 20.4315C4.2295 20.1651 3.86316 20.0318 3.39692 20.0318C2.79746 20.0318 2.0648 20.2317 1.19891 20.6313L0 15.9356C0.932488 15.436 1.93158 15.103 2.99728 14.9365C4.09629 14.7366 5.06208 14.6367 5.89466 14.6367C8.09266 14.6367 9.64126 15.1696 10.5404 16.2353C11.4729 17.2677 11.9392 18.6664 11.9392 20.4315C11.9392 21.4639 11.7893 22.3797 11.4896 23.179C11.1899 23.945 10.8069 24.7442 10.3406 25.5768C9.90768 26.3428 9.50805 27.0588 9.14171 27.7249C8.80868 28.3909 8.64217 29.3567 8.64217 30.6222V32.6204C8.64217 34.2523 8.9752 35.4345 9.64126 36.1672C10.3406 36.8666 11.3064 37.2163 12.5386 37.2163C15.103 37.2163 16.3851 35.7676 16.3851 32.8702V15.0364H23.8284V33.07C23.8284 36.367 22.8626 38.8648 20.931 40.5632C18.9994 42.2284 16.1853 43.061 12.4887 43.061Z" fill="#21ADF0"/>
-              <path d="M8.72139 11.2898V8.79203C9.18763 8.65882 9.70383 8.47565 10.27 8.24253C10.8361 8.00941 11.3357 7.69303 11.7686 7.29339C12.2016 6.89375 12.418 6.3942 12.418 5.79475C12.418 5.3285 12.2848 4.96217 12.0184 4.69574C11.752 4.42932 11.4189 4.29611 11.0193 4.29611C10.7529 4.29611 10.4698 4.34606 10.1701 4.44597C9.87035 4.54588 9.60392 4.64579 9.3708 4.7457L8.42166 1.39873C9.08772 0.832578 9.9203 0.466243 10.9194 0.299727C11.8852 0.0999091 12.7011 0 13.3672 0C14.8658 0 16.0481 0.349682 16.914 1.04905C17.7465 1.74841 18.1628 2.78081 18.1628 4.14624C18.1628 5.01212 17.9131 5.7781 17.4135 6.44416H25.0566V11.2898H8.72139Z" fill="#21ADF0"/>
-              <path d="M41.702 43.061C37.6391 43.061 34.6251 42.0785 32.6602 40.1136C30.6954 38.1154 29.7129 35.1681 29.7129 31.2717C29.7129 30.6056 29.7296 29.8063 29.7629 28.8738C29.8295 27.908 29.9127 27.0588 30.0126 26.3261H42.0018V31.0718H37.0563V31.7712C37.0563 33.7694 37.4226 35.2347 38.1553 36.1672C38.9212 37.0664 40.0868 37.516 41.6521 37.516C43.3172 37.516 44.6161 36.9332 45.5486 35.7676C46.481 34.5687 46.9473 32.404 46.9473 29.2735C46.9473 26.3095 46.4311 24.0948 45.3987 22.6295C44.3663 21.1308 42.468 20.3815 39.7038 20.3815C38.2052 20.3815 36.6566 20.6146 35.0581 21.0809C33.4595 21.5471 32.144 22.0633 31.1116 22.6295V16.3851C32.1773 15.819 33.6427 15.3527 35.5077 14.9864C37.4059 14.5868 39.2709 14.387 41.1026 14.387C44.333 14.387 46.9306 14.9864 48.8955 16.1853C50.8937 17.3509 52.3424 19.0161 53.2416 21.1808C54.1741 23.3455 54.6403 25.9098 54.6403 28.8738C54.6403 33.4031 53.6246 36.8999 51.5931 39.3643C49.5616 41.8287 46.2646 43.061 41.702 43.061Z" fill="#21ADF0"/>
-              <path d="M76.5591 42.9111C74.1946 42.9111 72.2797 42.4615 70.8143 41.5623C69.3823 40.6631 68.3665 39.5142 67.7671 38.1154H67.3674L66.5682 42.4116H60.8733V15.0364H68.3665V28.1245C68.3665 30.9553 68.8494 33.0534 69.8152 34.4188C70.781 35.7509 72.1464 36.417 73.9115 36.417C75.3102 36.417 76.3759 36.0007 77.1086 35.1681C77.8413 34.3355 78.2076 33.0034 78.2076 31.1717V15.0364H85.7008V32.8202C85.7008 36.0507 84.9182 38.5484 83.353 40.3135C81.821 42.0452 79.5564 42.9111 76.5591 42.9111Z" fill="#21ADF0"/>
-              <path d="M77.1921 55.6496C74.5279 55.6496 72.5796 55.2499 71.3474 54.4506C70.1152 53.6514 69.4991 52.6023 69.4991 51.3035V50.4543C69.4991 49.8881 69.3492 49.5384 69.0495 49.4052C68.7498 49.3053 68.3501 49.322 67.8506 49.4552L67.5009 46.1082C67.9672 45.9084 68.5666 45.7752 69.2993 45.7086C70.032 45.642 70.6314 45.6087 71.0977 45.6087C72.563 45.6087 73.6287 45.8751 74.2948 46.4079C74.9275 46.9408 75.2439 47.6901 75.2439 48.6559V49.8049C75.2439 50.371 75.3771 50.8039 75.6435 51.1037C75.8767 51.4367 76.3262 51.6032 76.9923 51.6032C77.6917 51.6032 78.1746 51.4367 78.441 51.1037C78.7074 50.8039 78.8406 50.371 78.8406 49.8049V45.7585H84.9351V50.6041C84.9351 52.236 84.319 53.4849 83.0868 54.3507C81.8546 55.2166 79.8897 55.6496 77.1921 55.6496Z" fill="#21ADF0"/>
-              <path d="M100.112 42.9111C97.2479 42.9111 95.0333 42.2284 93.468 40.863C91.9361 39.4975 91.1701 37.5826 91.1701 35.1182C91.1701 32.4539 92.1192 30.3225 94.0175 28.724C95.9491 27.1254 98.9797 26.1596 103.109 25.8266L108.305 25.427V24.6277C108.305 23.0291 107.872 21.8802 107.006 21.1808C106.14 20.4814 104.808 20.1318 103.009 20.1318C101.278 20.1318 99.5791 20.3982 97.914 20.931C96.2821 21.4306 94.8667 22.03 93.6678 22.7294V16.535C94.6336 16.0688 95.999 15.6025 97.7641 15.1363C99.5292 14.6367 101.577 14.387 103.909 14.387C106.173 14.387 108.188 14.72 109.953 15.3861C111.718 16.0188 113.1 17.1012 114.099 18.6331C115.132 20.1651 115.648 22.2632 115.648 24.9274V42.4116H108.305V30.8221L103.958 31.2717C101.96 31.4715 100.562 31.8711 99.7623 32.4706C98.9963 33.07 98.6133 33.8693 98.6133 34.8684C98.6133 35.8675 98.9297 36.6168 99.5625 37.1164C100.229 37.6159 101.078 37.8657 102.11 37.8657C102.51 37.8657 102.909 37.8324 103.309 37.7658C103.709 37.6659 104.075 37.5659 104.408 37.466L105.057 42.1618C104.425 42.3949 103.675 42.5781 102.81 42.7113C101.944 42.8445 101.044 42.9111 100.112 42.9111Z" fill="#21ADF0"/>
-              <path d="M13.5877 92.1967C9.25827 92.1967 6.11113 91.1977 4.14624 89.1995C2.21466 87.168 1.24887 84.2373 1.24887 80.4074V64.1722H8.74208V80.8071C8.74208 82.5721 9.12506 83.9209 9.89103 84.8534C10.6903 85.7526 11.9225 86.2022 13.5877 86.2022C15.2528 86.2022 16.4684 85.7526 17.2344 84.8534C18.0337 83.9209 18.4333 82.5721 18.4333 80.8071V54.3311H25.9265V80.4074C25.9265 84.2373 24.9441 87.168 22.9792 89.1995C21.0476 91.1977 17.9171 92.1967 13.5877 92.1967Z" fill="#21ADF0"/>
-              <path d="M42.3499 92.1967C40.385 92.1967 38.4035 91.9803 36.4053 91.5473C34.4404 91.1144 32.692 90.4983 31.16 89.699L33.2581 83.7544C34.2572 84.2873 35.5394 84.8534 37.1046 85.4529C38.6699 86.019 40.3184 86.3021 42.0502 86.3021C44.7477 86.3021 46.0965 85.5195 46.0965 83.9542C46.0965 83.0883 45.5803 82.4223 44.5479 81.956C43.5488 81.4565 42.1501 80.8903 40.3517 80.2576C38.5866 79.6248 37.0713 78.9421 35.8058 78.2094C34.5403 77.4768 33.5579 76.5776 32.8585 75.5119C32.1924 74.4462 31.8594 73.114 31.8594 71.5155C31.8594 68.7846 32.8751 66.7698 34.9066 65.471C36.9714 64.1722 39.7189 63.5227 43.1492 63.5227C45.0141 63.5227 46.6959 63.6726 48.1946 63.9723C49.6932 64.2721 50.8588 64.655 51.6914 65.1213V71.016C50.8255 70.6163 49.61 70.2333 48.0447 69.867C46.4795 69.4674 44.9642 69.2675 43.4988 69.2675C40.7347 69.2675 39.3526 69.9669 39.3526 71.3656C39.3526 72.1649 39.8855 72.7977 40.9512 73.2639C42.0502 73.6968 43.5821 74.2464 45.547 74.9124C48.1446 75.8116 50.1262 76.894 51.4916 78.1595C52.8903 79.3917 53.5897 81.1901 53.5897 83.5546C53.5897 85.0532 53.24 86.4686 52.5407 87.8007C51.8746 89.0996 50.7256 90.1653 49.0938 90.9978C47.4619 91.7971 45.214 92.1967 42.3499 92.1967Z" fill="#21ADF0"/>
-              <path d="M29.0768 60.3756V57.2285L34.1222 55.1303H51.956V60.3756H29.0768Z" fill="#21ADF0"/>
-              <path d="M74.9492 92.0469C72.5847 92.0469 70.6698 91.5973 69.2045 90.6981C67.7724 89.7989 66.7567 88.65 66.1572 87.2512H65.7576L64.9583 91.5473H59.2635V64.1722H66.7567V77.2603C66.7567 80.0911 67.2396 82.1892 68.2054 83.5546C69.1711 84.8867 70.5366 85.5528 72.3016 85.5528C73.7004 85.5528 74.7661 85.1365 75.4987 84.3039C76.2314 83.4713 76.5978 82.1392 76.5978 80.3075V64.1722H84.091V81.956C84.091 85.1864 83.3083 87.6842 81.7431 89.4492C80.2111 91.181 77.9465 92.0469 74.9492 92.0469Z" fill="#21ADF0"/>
-              <path d="M98.3522 91.5473V73.4637C98.3522 72.065 98.0192 71.0493 97.3532 70.4165C96.7204 69.7837 95.6713 69.4674 94.206 69.4674C93.107 69.4674 92.0913 69.6172 91.1588 69.9169C90.2596 70.2167 89.4104 70.583 88.6111 71.016V65.0214C89.3437 64.6884 90.3761 64.3553 91.7083 64.0223C93.0404 63.6893 94.6056 63.5227 96.404 63.5227C98.2357 63.5227 99.8509 63.7892 101.25 64.322C102.682 64.8549 103.797 65.754 104.597 67.0196C105.429 68.2518 105.845 69.9502 105.845 72.115V91.5473H98.3522Z" fill="#21ADF0"/>
-              <path d="M119.611 92.0469C117.48 92.0469 115.765 91.5307 114.466 90.4983C113.201 89.4326 112.568 87.8174 112.568 85.6527V82.4056C112.568 80.4407 113.001 78.9921 113.867 78.0596C114.733 77.1271 115.931 76.4277 117.463 75.9615L117.513 75.7616L112.068 73.8134V72.5146C112.068 70.8161 112.535 69.3008 113.467 67.9687C114.433 66.6033 115.832 65.5209 117.663 64.7217C119.495 63.9224 121.726 63.5227 124.357 63.5227C128.021 63.5227 130.918 64.3553 133.049 66.0205C135.214 67.6856 136.296 70.2 136.296 73.5636V81.0568C136.296 82.6554 136.646 83.8044 137.345 84.5037C138.045 85.2031 138.911 85.5528 139.943 85.5528C141.375 85.5528 142.524 84.9533 143.39 83.7544C144.256 82.5555 144.689 80.9569 144.689 78.9587V64.1722H152.182V91.5473H146.387L145.538 87.2512H145.138C144.539 88.65 143.556 89.7989 142.191 90.6981C140.859 91.5973 139.194 92.0469 137.196 92.0469C134.465 92.0469 132.4 91.3309 131.001 89.8988C129.636 88.4335 128.953 86.1356 128.953 83.0051V74.1131C128.953 72.3481 128.503 71.1325 127.604 70.4665C126.705 69.7671 125.589 69.4174 124.257 69.4174C122.992 69.4174 121.943 69.7005 121.11 70.2666C120.278 70.7995 119.828 71.6154 119.761 72.7144L124.107 74.8125L123.608 78.0596C122.376 78.0929 121.443 78.3926 120.81 78.9587C120.178 79.4916 119.861 80.4407 119.861 81.8062V84.8534C119.861 86.2188 120.527 86.9016 121.859 86.9016C122.526 86.9016 123.108 86.8016 123.608 86.6018L124.307 91.0478C123.042 91.7139 121.476 92.0469 119.611 92.0469Z" fill="#21ADF0"/>
-              <path d="M168.943 92.0469C165.912 92.0469 163.598 91.1644 161.999 89.3993C160.401 87.6342 159.601 85.0366 159.601 81.6063V64.1722H167.095V80.3075C167.095 82.1392 167.461 83.4713 168.194 84.3039C168.926 85.1365 169.992 85.5528 171.391 85.5528C173.156 85.5528 174.521 84.8867 175.487 83.5546C176.453 82.1892 176.936 80.0911 176.936 77.2603V64.1722H184.429V91.5473H178.734L177.935 87.3511H177.485C176.919 88.6833 175.937 89.7989 174.538 90.6981C173.172 91.5973 171.307 92.0469 168.943 92.0469Z" fill="#21ADF0"/>
-              <path d="M179.358 61.4746C177.459 61.4746 175.944 61.0417 174.812 60.1758C173.68 59.3099 173.113 58.0943 173.113 56.5291C173.113 54.9638 173.68 53.7483 174.812 52.8824C175.944 52.0165 177.459 51.5836 179.358 51.5836C181.256 51.5836 182.788 52.0165 183.954 52.8824C185.086 53.7483 185.652 54.9638 185.652 56.5291C185.652 58.0943 185.086 59.3099 183.954 60.1758C182.788 61.0417 181.256 61.4746 179.358 61.4746ZM179.358 58.5772C180.09 58.5772 180.657 58.3941 181.056 58.0277C181.456 57.6614 181.656 57.1618 181.656 56.5291C181.656 55.8963 181.456 55.3968 181.056 55.0304C180.657 54.6641 180.09 54.4809 179.358 54.4809C178.658 54.4809 178.109 54.6641 177.709 55.0304C177.31 55.3968 177.11 55.8963 177.11 56.5291C177.11 57.1618 177.31 57.6614 177.709 58.0277C178.109 58.3941 178.658 58.5772 179.358 58.5772Z" fill="#21ADF0"/>
-              <path d="M173.549 49.0359V46.9877C173.882 46.8878 174.299 46.738 174.798 46.5381C175.264 46.3383 175.681 46.0719 176.047 45.7389C176.413 45.4058 176.597 44.9895 176.597 44.49C176.597 44.1237 176.497 43.8406 176.297 43.6408C176.064 43.4076 175.781 43.2911 175.448 43.2911C174.881 43.2911 174.399 43.4576 173.999 43.7906L173.1 40.8933C173.699 40.427 174.448 40.1273 175.348 39.9941C176.214 39.8276 176.963 39.7443 177.596 39.7443C178.861 39.7443 179.894 40.0107 180.693 40.5436C181.459 41.0431 181.842 41.8757 181.842 43.0413C181.842 43.341 181.808 43.6574 181.742 43.9904C181.675 44.2902 181.559 44.5733 181.392 44.8397H187.287V49.0359H173.549Z" fill="#21ADF0"/>
-              <path d="M199.14 91.5473V73.4637C199.14 72.065 198.807 71.0493 198.141 70.4165C197.508 69.7837 196.459 69.4674 194.994 69.4674C193.895 69.4674 192.879 69.6172 191.946 69.9169C191.047 70.2167 190.198 70.583 189.399 71.016V65.0214C190.131 64.6884 191.164 64.3553 192.496 64.0223C193.828 63.6893 195.393 63.5227 197.192 63.5227C199.023 63.5227 200.638 63.7892 202.037 64.322C203.469 64.8549 204.585 65.754 205.384 67.0196C206.217 68.2518 206.633 69.9502 206.633 72.115V91.5473H199.14Z" fill="#21ADF0"/>
-              <path d="M8.40959 118.76C7.32969 118.76 6.49466 118.503 5.90448 117.988C5.32686 117.473 5.03806 116.751 5.03806 115.822C5.03806 114.817 5.39593 114.014 6.11167 113.411C6.83997 112.808 7.98265 112.444 9.53971 112.319L11.4986 112.168V111.867C11.4986 111.264 11.3354 110.831 11.0089 110.567C10.6824 110.303 10.1801 110.171 9.50204 110.171C8.84908 110.171 8.20868 110.272 7.58083 110.473C6.96554 110.661 6.43187 110.887 5.97982 111.151V108.815C6.34398 108.639 6.85881 108.464 7.52433 108.288C8.18984 108.099 8.96209 108.005 9.84108 108.005C10.6949 108.005 11.4546 108.131 12.1202 108.382C12.7857 108.621 13.3068 109.029 13.6835 109.606C14.0728 110.184 14.2674 110.975 14.2674 111.98V118.572H11.4986V114.202L9.85991 114.372C9.1065 114.447 8.57911 114.598 8.27774 114.824C7.98893 115.05 7.84453 115.351 7.84453 115.728C7.84453 116.105 7.96382 116.387 8.2024 116.575C8.45354 116.764 8.77374 116.858 9.163 116.858C9.31369 116.858 9.46437 116.845 9.61505 116.82C9.76574 116.783 9.90386 116.745 10.0294 116.707L10.2743 118.478C10.0357 118.566 9.75318 118.635 9.4267 118.685C9.10022 118.735 8.76118 118.76 8.40959 118.76Z" fill="#808080"/>
-              <path d="M12.0523 123.488V121.812C12.0523 121.498 11.9142 121.341 11.6379 121.341C11.5752 121.341 11.5124 121.347 11.4496 121.36C11.3868 121.372 11.324 121.391 11.2612 121.416L11.1294 120.06C11.3052 119.997 11.55 119.934 11.864 119.872C12.1653 119.809 12.473 119.777 12.7869 119.777C13.4022 119.777 13.8354 119.897 14.0865 120.135C14.3377 120.386 14.4633 120.725 14.4633 121.152V123.488H12.0523Z" fill="#808080"/>
-              <path d="M11.737 106.819V102.543H14.3363V106.819H11.737Z" fill="#808080"/>
-              <path d="M23.5463 118.76C22.6548 118.76 21.9328 118.591 21.3803 118.252C20.8403 117.913 20.4573 117.48 20.2313 116.952H20.0806L19.7792 118.572H17.632V108.25H20.4573V113.185C20.4573 114.252 20.6394 115.043 21.0035 115.558C21.3677 116.061 21.8825 116.312 22.548 116.312C23.0754 116.312 23.4773 116.155 23.7535 115.841C24.0298 115.527 24.1679 115.025 24.1679 114.334V108.25H26.9932V114.956C26.9932 116.174 26.6981 117.115 26.1079 117.781C25.5303 118.434 24.6764 118.76 23.5463 118.76Z" fill="#808080"/>
-              <path d="M32.7283 118.76C31.887 118.76 31.2403 118.566 30.7882 118.176C30.3362 117.775 30.1102 117.166 30.1102 116.349V108.25H32.9355V116.01C32.9355 116.475 33.1552 116.707 33.5947 116.707C33.7831 116.707 33.9965 116.663 34.2351 116.575L34.4988 118.384C34.0216 118.635 33.4315 118.76 32.7283 118.76Z" fill="#808080"/>
-              <path d="M39.3361 118.76C38.4948 118.76 37.8481 118.566 37.3961 118.176C36.944 117.775 36.718 117.166 36.718 116.349V108.25H39.5433V116.01C39.5433 116.475 39.7631 116.707 40.2025 116.707C40.3909 116.707 40.6044 116.663 40.8429 116.575L41.1066 118.384C40.6295 118.635 40.0393 118.76 39.3361 118.76Z" fill="#808080"/>
-              <path d="M49.1271 118.76C48.2356 118.76 47.5136 118.591 46.9611 118.252C46.4211 117.913 46.0381 117.48 45.8121 116.952H45.6614L45.3601 118.572H43.2128V108.25H46.0381V113.185C46.0381 114.252 46.2202 115.043 46.5844 115.558C46.9485 116.061 47.4633 116.312 48.1289 116.312C48.6562 116.312 49.0581 116.155 49.3343 115.841C49.6106 115.527 49.7487 115.025 49.7487 114.334V108.25H52.574V114.956C52.574 116.174 52.2789 117.115 51.6887 117.781C51.1111 118.434 50.2573 118.76 49.1271 118.76Z" fill="#808080"/>
-              <path d="M50.1472 106.819V102.543H52.7465V106.819H50.1472Z" fill="#808080"/>
-              <path d="M59.119 118.76C57.9763 118.76 57.1036 118.428 56.5009 117.762C55.8982 117.097 55.5968 116.117 55.5968 114.824V108.25H58.4221V114.334C58.4221 115.025 58.5602 115.527 58.8365 115.841C59.1127 116.155 59.5146 116.312 60.0419 116.312C60.7075 116.312 61.2223 116.061 61.5864 115.558C61.9506 115.043 62.1327 114.252 62.1327 113.185V108.25H64.958V118.572H62.8107L62.5094 116.99H62.3399C62.1264 117.492 61.756 117.913 61.2286 118.252C60.7137 118.591 60.0106 118.76 59.119 118.76Z" fill="#808080"/>
-              <path d="M63.2342 107.233C62.5185 107.233 61.9472 107.07 61.5202 106.743C61.0933 106.417 60.8798 105.959 60.8798 105.368C60.8798 104.778 61.0933 104.32 61.5202 103.993C61.9472 103.667 62.5185 103.504 63.2342 103.504C63.95 103.504 64.5276 103.667 64.9671 103.993C65.394 104.32 65.6075 104.778 65.6075 105.368C65.6075 105.959 65.394 106.417 64.9671 106.743C64.5276 107.07 63.95 107.233 63.2342 107.233ZM63.2342 106.141C63.5105 106.141 63.724 106.072 63.8746 105.933C64.0253 105.795 64.1007 105.607 64.1007 105.368C64.1007 105.13 64.0253 104.941 63.8746 104.803C63.724 104.665 63.5105 104.596 63.2342 104.596C62.9706 104.596 62.7634 104.665 62.6127 104.803C62.462 104.941 62.3867 105.13 62.3867 105.368C62.3867 105.607 62.462 105.795 62.6127 105.933C62.7634 106.072 62.9706 106.141 63.2342 106.141Z" fill="#808080"/>
-              <path d="M61.2325 102.543V101.771C61.3581 101.733 61.5151 101.677 61.7034 101.601C61.8792 101.526 62.0362 101.425 62.1743 101.3C62.3124 101.174 62.3815 101.017 62.3815 100.829C62.3815 100.691 62.3438 100.584 62.2685 100.509C62.1806 100.421 62.0739 100.377 61.9483 100.377C61.7348 100.377 61.5527 100.44 61.4021 100.565L61.063 99.4729C61.2891 99.2971 61.5716 99.1841 61.9106 99.1338C62.2371 99.0711 62.5196 99.0397 62.7582 99.0397C63.2354 99.0397 63.6246 99.1401 63.926 99.341C64.2148 99.5294 64.3592 99.8433 64.3592 100.283C64.3592 100.396 64.3467 100.515 64.3216 100.641C64.2964 100.754 64.2525 100.86 64.1897 100.961H66.4123V102.543H61.2325Z" fill="#808080"/>
-              <path d="M71.0698 118.572V111.754C71.0698 111.226 70.9442 110.843 70.6931 110.605C70.4545 110.366 70.0589 110.247 69.5064 110.247C69.092 110.247 68.7091 110.303 68.3575 110.416C68.0184 110.529 67.6982 110.667 67.3969 110.831V108.57C67.6731 108.445 68.0624 108.319 68.5647 108.194C69.0669 108.068 69.6571 108.005 70.3352 108.005C71.0258 108.005 71.6348 108.106 72.1622 108.307C72.7022 108.508 73.1228 108.847 73.4242 109.324C73.7381 109.788 73.8951 110.429 73.8951 111.245V118.572H71.0698Z" fill="#808080"/>
-              <path d="M81.3646 118.817C79.7322 118.817 78.5456 118.44 77.8047 117.687C77.0764 116.921 76.7123 115.816 76.7123 114.372V108.25H79.5376V114.522C79.5376 115.188 79.682 115.696 79.9708 116.048C80.2722 116.387 80.7368 116.557 81.3646 116.557C81.9925 116.557 82.4508 116.387 82.7396 116.048C83.041 115.696 83.1917 115.188 83.1917 114.522V104.54H86.017V114.372C86.017 115.816 85.6465 116.921 84.9057 117.687C84.1774 118.44 82.997 118.817 81.3646 118.817Z" fill="#808080"/>
-              <path d="M75.5024 106.819V105.632L77.0469 104.841H82.5092V106.819H75.5024Z" fill="#808080"/>
-              <path d="M90.8156 118.572L87.8208 108.25H90.6649L92.944 116.293H93.057C93.2579 116.293 93.4463 116.236 93.6221 116.123C93.7978 116.01 93.9485 115.86 94.0741 115.671C94.3252 115.32 94.5136 114.905 94.6392 114.428C94.7647 113.938 94.8275 113.455 94.8275 112.978C94.8275 112.137 94.6643 111.49 94.3378 111.038C94.0239 110.586 93.5844 110.36 93.0193 110.36C92.9063 110.36 92.7996 110.366 92.6991 110.379C92.6112 110.391 92.5296 110.416 92.4543 110.454L91.9269 108.288C92.2157 108.2 92.4856 108.15 92.7368 108.137C93.0005 108.112 93.2139 108.099 93.3772 108.099C94.0427 108.099 94.6203 108.187 95.11 108.363C95.5998 108.539 96.0204 108.803 96.372 109.154C97.251 110.033 97.6905 111.289 97.6905 112.921C97.6905 113.938 97.5273 114.83 97.2008 115.596C96.8868 116.349 96.5039 116.946 96.0518 117.385C95.6751 117.749 95.1979 118.038 94.6203 118.252C94.0553 118.465 93.2767 118.572 92.2847 118.572H90.8156Z" fill="#808080"/>
-              <path d="M114.226 118.817C113.586 118.817 112.983 118.741 112.418 118.591C111.853 118.453 111.325 118.252 110.836 117.988L111.589 115.935C111.865 116.098 112.198 116.243 112.587 116.368C112.977 116.494 113.36 116.557 113.736 116.557C114.44 116.557 114.998 116.293 115.413 115.765C115.827 115.226 116.034 114.422 116.034 113.355C116.034 112.35 115.827 111.584 115.413 111.057C114.998 110.529 114.352 110.266 113.473 110.266C113.058 110.266 112.631 110.328 112.192 110.454C111.752 110.567 111.388 110.711 111.099 110.887V108.57C111.489 108.395 111.928 108.256 112.418 108.156C112.908 108.056 113.429 108.005 113.981 108.005C115.714 108.005 116.97 108.482 117.748 109.437C118.527 110.379 118.916 111.684 118.916 113.355C118.916 115.138 118.508 116.494 117.692 117.423C116.876 118.352 115.72 118.817 114.226 118.817Z" fill="#808080"/>
-              <path d="M116.225 106.819C115.634 106.819 115.17 106.731 114.831 106.555C114.492 106.379 114.253 106.159 114.115 105.896C113.964 105.62 113.889 105.331 113.889 105.029C113.889 104.552 114.015 104.094 114.266 103.654L116.319 103.918C116.256 104.106 116.225 104.282 116.225 104.445C116.225 104.621 116.281 104.759 116.394 104.86C116.495 104.948 116.67 104.992 116.922 104.992H120.971V106.819H116.225Z" fill="#808080"/>
-              <path d="M123.299 118.572L120.304 108.25H123.148L125.427 116.293H125.54C125.741 116.293 125.929 116.236 126.105 116.123C126.281 116.01 126.431 115.86 126.557 115.671C126.808 115.32 126.997 114.905 127.122 114.428C127.248 113.938 127.31 113.455 127.31 112.978C127.31 112.137 127.147 111.49 126.821 111.038C126.507 110.586 126.067 110.36 125.502 110.36C125.389 110.36 125.283 110.366 125.182 110.379C125.094 110.391 125.013 110.416 124.937 110.454L124.41 108.288C124.699 108.2 124.969 108.15 125.22 108.137C125.483 108.112 125.697 108.099 125.86 108.099C126.526 108.099 127.103 108.187 127.593 108.363C128.083 108.539 128.503 108.803 128.855 109.154C129.734 110.033 130.173 111.289 130.173 112.921C130.173 113.938 130.01 114.83 129.684 115.596C129.37 116.349 128.987 116.946 128.535 117.385C128.158 117.749 127.681 118.038 127.103 118.252C126.538 118.465 125.76 118.572 124.768 118.572H123.299Z" fill="#808080"/>
-              <path d="M148.329 118.817C147.199 118.817 146.295 118.685 145.617 118.421C144.938 118.145 144.442 117.762 144.129 117.272C143.827 116.783 143.676 116.218 143.676 115.577C143.676 115.025 143.758 114.579 143.921 114.24C144.097 113.901 144.317 113.643 144.581 113.468C144.857 113.279 145.133 113.154 145.409 113.091V112.978C144.982 112.84 144.587 112.601 144.223 112.262C143.859 111.911 143.676 111.396 143.676 110.718C143.676 110.253 143.783 109.82 143.997 109.418C144.223 109.016 144.581 108.696 145.07 108.457C145.56 108.206 146.207 108.081 147.01 108.081C147.4 108.081 147.776 108.112 148.14 108.175C148.505 108.225 148.787 108.3 148.988 108.401L148.555 110.303C148.454 110.278 148.316 110.253 148.14 110.228C147.977 110.19 147.808 110.171 147.632 110.171C147.243 110.171 146.954 110.266 146.766 110.454C146.577 110.63 146.483 110.862 146.483 111.151C146.483 111.615 146.659 111.923 147.01 112.074C147.362 112.212 147.745 112.281 148.159 112.281H148.555V114.033H148.159C147.619 114.033 147.211 114.127 146.935 114.315C146.671 114.504 146.539 114.811 146.539 115.238C146.539 115.464 146.59 115.69 146.69 115.916C146.803 116.13 146.992 116.312 147.255 116.462C147.519 116.601 147.896 116.67 148.385 116.67C149.089 116.67 149.566 116.519 149.817 116.218C150.081 115.916 150.212 115.552 150.212 115.125V108.25H153.038V115.031C153.038 116.324 152.655 117.279 151.889 117.894C151.135 118.509 149.949 118.817 148.329 118.817Z" fill="#808080"/>
-              <path d="M161.948 118.76C161.057 118.76 160.335 118.591 159.782 118.252C159.242 117.913 158.859 117.48 158.633 116.952H158.482L158.181 118.572H156.034V108.25H158.859V113.185C158.859 114.252 159.041 115.043 159.405 115.558C159.77 116.061 160.284 116.312 160.95 116.312C161.477 116.312 161.879 116.155 162.155 115.841C162.432 115.527 162.57 115.025 162.57 114.334V108.25H165.395V114.956C165.395 116.174 165.1 117.115 164.51 117.781C163.932 118.434 163.078 118.76 161.948 118.76Z" fill="#808080"/>
-              <path d="M183.234 118.76C182.091 118.76 181.219 118.428 180.616 117.762C180.013 117.097 179.712 116.117 179.712 114.824V108.25H182.537V114.334C182.537 115.025 182.675 115.527 182.951 115.841C183.228 116.155 183.629 116.312 184.157 116.312C184.822 116.312 185.337 116.061 185.701 115.558C186.065 115.043 186.248 114.252 186.248 113.185V108.25H189.073V118.572H186.926L186.624 116.99H186.455C186.241 117.492 185.871 117.913 185.343 118.252C184.829 118.591 184.125 118.76 183.234 118.76Z" fill="#808080"/>
-              <path d="M186.558 106.819V102.543H189.157V106.819H186.558Z" fill="#808080"/>
-              <path d="M194.996 118.572V111.754C194.996 111.226 194.871 110.843 194.62 110.605C194.381 110.366 193.985 110.247 193.433 110.247C193.019 110.247 192.636 110.303 192.284 110.416C191.945 110.529 191.625 110.667 191.323 110.831V108.57C191.6 108.445 191.989 108.319 192.491 108.194C192.993 108.068 193.584 108.005 194.262 108.005C194.952 108.005 195.561 108.106 196.089 108.307C196.629 108.508 197.049 108.847 197.351 109.324C197.665 109.788 197.822 110.429 197.822 111.245V118.572H194.996Z" fill="#808080"/>
-              <path d="M204.161 118.76C203.018 118.76 202.146 118.428 201.543 117.762C200.94 117.097 200.639 116.117 200.639 114.824V108.25H203.464V114.334C203.464 115.025 203.602 115.527 203.879 115.841C204.155 116.155 204.557 116.312 205.084 116.312C205.749 116.312 206.264 116.061 206.628 115.558C206.993 115.043 207.175 114.252 207.175 113.185V108.25H210V118.572H207.853L207.551 116.99H207.382C207.168 117.492 206.798 117.913 206.271 118.252C205.756 118.591 205.053 118.76 204.161 118.76Z" fill="#808080"/>
-              <path d="M8.18357 141.69C7.37992 141.69 6.73324 141.496 6.24352 141.106C5.76636 140.705 5.52778 140.096 5.52778 139.279V138.13C5.52778 137.39 5.69102 136.831 6.0175 136.454C6.34398 136.077 6.79602 135.801 7.37364 135.625L7.39248 135.55L5.33942 134.815V134.326C5.33942 133.71 5.5215 133.145 5.88565 132.631C6.2498 132.116 6.78347 131.708 7.48666 131.406C8.2024 131.092 9.06883 130.935 10.0859 130.935C11.5174 130.935 12.6538 131.268 13.4951 131.934C14.3365 132.587 14.7571 133.579 14.7571 134.91V141.502H11.9318V135.079C11.9318 134.451 11.7623 133.98 11.4233 133.666C11.0968 133.353 10.6259 133.196 10.0106 133.196C9.43298 133.196 8.99976 133.321 8.71096 133.572C8.42215 133.811 8.26518 134.106 8.24007 134.458L9.87875 135.211L9.6904 136.416C9.22579 136.429 8.8742 136.529 8.63561 136.718C8.39703 136.894 8.27774 137.239 8.27774 137.754V138.978C8.27774 139.493 8.52888 139.75 9.03116 139.75C9.2823 139.75 9.50204 139.713 9.6904 139.637L9.95409 141.314C9.47693 141.565 8.88675 141.69 8.18357 141.69Z" fill="#808080"/>
-              <path d="M6.02059 129.749V128.562L7.92296 127.771H11.238C11.2631 127.332 11.4452 126.967 11.7842 126.679C12.1107 126.377 12.5565 126.227 13.1215 126.227C13.7494 126.227 14.2328 126.396 14.5719 126.735C14.9109 127.062 15.0804 127.482 15.0804 127.997C15.0804 128.499 14.9234 128.92 14.6095 129.259C14.2956 129.585 13.8122 129.749 13.1592 129.749H6.02059ZM13.1215 128.75C13.3852 128.75 13.5861 128.681 13.7243 128.543C13.8498 128.393 13.9126 128.217 13.9126 128.016C13.9126 127.802 13.8435 127.627 13.7054 127.488C13.5547 127.338 13.3538 127.262 13.1027 127.262C12.8516 127.262 12.6569 127.332 12.5188 127.47C12.3807 127.608 12.3116 127.784 12.3116 127.997C12.3116 128.198 12.3807 128.374 12.5188 128.524C12.6444 128.675 12.8453 128.75 13.1215 128.75Z" fill="#808080"/>
-              <path d="M19.5413 141.502L16.5465 131.18H19.3906L21.6697 139.223H21.7827C21.9836 139.223 22.172 139.166 22.3478 139.053C22.5236 138.94 22.6743 138.79 22.7998 138.601C23.051 138.25 23.2393 137.835 23.3649 137.358C23.4905 136.868 23.5532 136.385 23.5532 135.908C23.5532 135.067 23.39 134.42 23.0635 133.968C22.7496 133.516 22.3101 133.29 21.745 133.29C21.632 133.29 21.5253 133.296 21.4248 133.309C21.3369 133.321 21.2553 133.346 21.18 133.384L20.6526 131.218C20.9414 131.13 21.2114 131.08 21.4625 131.067C21.7262 131.042 21.9397 131.03 22.1029 131.03C22.7684 131.03 23.3461 131.117 23.8358 131.293C24.3255 131.469 24.7461 131.733 25.0977 132.084C25.9767 132.963 26.4162 134.219 26.4162 135.851C26.4162 136.868 26.253 137.76 25.9265 138.526C25.6126 139.279 25.2296 139.876 24.7775 140.315C24.4008 140.68 23.9237 140.968 23.3461 141.182C22.781 141.395 22.0025 141.502 21.0105 141.502H19.5413Z" fill="#808080"/>
-              <path d="M31.6202 141.69C30.7789 141.69 30.1322 141.496 29.6802 141.106C29.2281 140.705 29.0021 140.096 29.0021 139.279V131.18H31.8274V138.94C31.8274 139.405 32.0472 139.637 32.4867 139.637C32.675 139.637 32.8885 139.593 33.1271 139.505L33.3908 141.314C32.9136 141.565 32.3234 141.69 31.6202 141.69Z" fill="#808080"/>
-              <path d="M36.0462 141.502V137.17H34.9726V135.437H38.589V139.355H38.7209C39.3487 139.355 39.8322 139.104 40.1712 138.601C40.5102 138.099 40.6798 137.339 40.6798 136.322C40.6798 135.154 40.4349 134.338 39.9452 133.874C39.4555 133.409 38.7397 133.177 37.7979 133.177C37.145 133.177 36.5548 133.271 36.0274 133.459C35.5 133.635 35.0291 133.849 34.6148 134.1V131.745C35.0291 131.532 35.5503 131.343 36.1781 131.18C36.8059 131.017 37.528 130.935 38.3442 130.935C40.1649 130.935 41.4834 131.375 42.2996 132.254C43.1284 133.133 43.5427 134.47 43.5427 136.266C43.5427 137.948 43.1535 139.242 42.3749 140.146C41.609 141.05 40.2968 141.502 38.4383 141.502H36.0462Z" fill="#808080"/>
-              <path d="M37.5423 129.768V128.826C37.7181 128.776 37.9128 128.706 38.1262 128.619C38.3397 128.531 38.5281 128.411 38.6913 128.261C38.8545 128.11 38.9362 127.922 38.9362 127.696C38.9362 127.52 38.8859 127.382 38.7855 127.281C38.685 127.181 38.5594 127.131 38.4088 127.131C38.3083 127.131 38.2016 127.149 38.0886 127.187C37.9756 127.225 37.8751 127.262 37.7872 127.3L37.4293 126.038C37.6805 125.825 37.9944 125.687 38.3711 125.624C38.7352 125.548 39.0429 125.511 39.294 125.511C39.8591 125.511 40.3049 125.643 40.6313 125.906C40.9453 126.17 41.1022 126.559 41.1022 127.074C41.1022 127.401 41.0081 127.689 40.8197 127.941H43.7015V129.768H37.5423Z" fill="#808080"/>
-              <path d="M48.8278 141.502V134.684C48.8278 134.156 48.7023 133.773 48.4511 133.535C48.2125 133.296 47.817 133.177 47.2645 133.177C46.8501 133.177 46.4671 133.233 46.1155 133.346C45.7765 133.459 45.4563 133.597 45.1549 133.761V131.5C45.4312 131.375 45.8204 131.249 46.3227 131.124C46.825 130.998 47.4152 130.935 48.0932 130.935C48.7839 130.935 49.3929 131.036 49.9203 131.237C50.4602 131.438 50.8809 131.777 51.1822 132.254C51.4962 132.718 51.6531 133.359 51.6531 134.175V141.502H48.8278Z" fill="#808080"/>
-              <path d="M55.5251 141.502L53.7358 131.18H56.4857L56.9943 134.815C57.032 135.117 57.0759 135.531 57.1261 136.059C57.1889 136.573 57.2454 137.176 57.2957 137.867H57.3522C57.5154 137.176 57.6598 136.573 57.7854 136.059C57.9235 135.531 58.0365 135.098 58.1244 134.759L59.1415 131.18H60.8555L61.8727 134.759C61.9731 135.098 62.0861 135.531 62.2117 136.059C62.3373 136.573 62.4817 137.176 62.6449 137.867H62.7014C62.7642 137.176 62.8144 136.573 62.8521 136.059C62.9023 135.531 62.9526 135.117 63.0028 134.815L63.5302 131.18H66.2613L64.4908 141.502H61.722L60.5353 137.302C60.4098 136.812 60.3093 136.366 60.234 135.964C60.1712 135.55 60.1084 135.129 60.0456 134.702H59.9703C59.8949 135.129 59.8196 135.537 59.7443 135.927C59.6815 136.316 59.5747 136.774 59.4241 137.302L58.2186 141.502H55.5251Z" fill="#808080"/>
-              <path d="M71.8848 141.747C71.144 141.747 70.3968 141.665 69.6434 141.502C68.9026 141.339 68.2433 141.106 67.6657 140.805L68.4568 138.564C68.8335 138.765 69.3169 138.978 69.9071 139.204C70.4973 139.418 71.1189 139.524 71.7718 139.524C72.7889 139.524 73.2975 139.229 73.2975 138.639C73.2975 138.313 73.1029 138.061 72.7136 137.886C72.3369 137.697 71.8095 137.484 71.1314 137.245C70.4659 137.007 69.8946 136.749 69.4174 136.473C68.9402 136.197 68.5698 135.858 68.3061 135.456C68.055 135.054 67.9294 134.552 67.9294 133.949C67.9294 132.919 68.3124 132.16 69.0784 131.67C69.8569 131.18 70.8928 130.935 72.1862 130.935C72.8894 130.935 73.5235 130.992 74.0886 131.105C74.6536 131.218 75.0931 131.362 75.407 131.538V133.761C75.0806 133.61 74.6222 133.466 74.0321 133.327C73.4419 133.177 72.8706 133.101 72.318 133.101C71.2758 133.101 70.7547 133.365 70.7547 133.893C70.7547 134.194 70.9556 134.432 71.3574 134.608C71.7718 134.771 72.3494 134.979 73.0903 135.23C74.0697 135.569 74.8169 135.977 75.3317 136.454C75.8591 136.919 76.1228 137.597 76.1228 138.488C76.1228 139.053 75.991 139.587 75.7273 140.089C75.4761 140.579 75.0429 140.981 74.4276 141.295C73.8123 141.596 72.9647 141.747 71.8848 141.747Z" fill="#808080"/>
-              <path d="M80.0514 135.418C79.185 135.418 78.576 135.23 78.2244 134.853C77.8854 134.464 77.7159 134.018 77.7159 133.516C77.7159 133.076 77.8414 132.624 78.0926 132.16L80.1456 132.423C80.0828 132.612 80.0514 132.813 80.0514 133.026C80.0514 133.189 80.1017 133.321 80.2021 133.422C80.3026 133.51 80.4784 133.553 80.7295 133.553H82.8579V135.418H80.0514ZM80.0514 140.692C79.185 140.692 78.576 140.504 78.2244 140.127C77.8854 139.738 77.7159 139.292 77.7159 138.79C77.7159 138.35 77.8414 137.898 78.0926 137.434L80.1456 137.697C80.0828 137.886 80.0514 138.087 80.0514 138.3C80.0514 138.463 80.1017 138.595 80.2021 138.696C80.3026 138.783 80.4784 138.827 80.7295 138.827H82.8579V140.692H80.0514Z" fill="#808080"/>
-              <path d="M89.5897 141.747C88.4595 141.747 87.5554 141.615 86.8774 141.351C86.1993 141.075 85.7033 140.692 85.3894 140.202C85.088 139.713 84.9373 139.148 84.9373 138.507C84.9373 137.955 85.0189 137.509 85.1822 137.17C85.358 136.831 85.5777 136.573 85.8414 136.398C86.1177 136.209 86.3939 136.084 86.6702 136.021V135.908C86.2432 135.77 85.8477 135.531 85.4835 135.192C85.1194 134.841 84.9373 134.326 84.9373 133.648C84.9373 133.183 85.0441 132.75 85.2575 132.348C85.4835 131.946 85.8414 131.626 86.3311 131.387C86.8209 131.136 87.4675 131.011 88.2712 131.011C88.6605 131.011 89.0372 131.042 89.4013 131.105C89.7655 131.155 90.048 131.23 90.2489 131.331L89.8157 133.233C89.7152 133.208 89.5771 133.183 89.4013 133.158C89.2381 133.12 89.0685 133.101 88.8927 133.101C88.5035 133.101 88.2147 133.196 88.0263 133.384C87.838 133.56 87.7438 133.792 87.7438 134.081C87.7438 134.545 87.9196 134.853 88.2712 135.004C88.6228 135.142 89.0058 135.211 89.4201 135.211H89.8157V136.963H89.4201C88.8802 136.963 88.4721 137.057 88.1958 137.245C87.9321 137.434 87.8003 137.741 87.8003 138.168C87.8003 138.394 87.8505 138.62 87.951 138.846C88.064 139.06 88.2523 139.242 88.516 139.392C88.7797 139.531 89.1564 139.6 89.6462 139.6C90.3494 139.6 90.8265 139.449 91.0777 139.148C91.3413 138.846 91.4732 138.482 91.4732 138.055V131.18H94.2985V137.961C94.2985 139.254 93.9155 140.209 93.1496 140.824C92.3961 141.439 91.2095 141.747 89.5897 141.747Z" fill="#808080"/>
-              <path d="M99.8563 141.502V134.684C99.8563 134.156 99.7307 133.773 99.4796 133.535C99.241 133.296 98.8454 133.177 98.2929 133.177C97.8786 133.177 97.4956 133.233 97.144 133.346C96.8049 133.459 96.4847 133.597 96.1834 133.761V131.5C96.4596 131.375 96.8489 131.249 97.3512 131.124C97.8534 130.998 98.4436 130.935 99.1217 130.935C99.8123 130.935 100.421 131.036 100.949 131.237C101.489 131.438 101.909 131.777 102.211 132.254C102.525 132.718 102.682 133.359 102.682 134.175V141.502H99.8563Z" fill="#808080"/>
-          </svg>
+      <div className="fixed top-0 right-0 mr-10 mt-16 ">
+          <div className="border-2 border-blue-300 border-dashed p-4 px-6">
+            <svg width="210" height="142" viewBox="0 0 210 142" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.4887 43.061C8.75873 43.061 5.94461 42.2284 4.04633 40.5632C2.14805 38.8981 1.19891 36.4669 1.19891 33.2698V31.2717C1.19891 29.9062 1.38208 28.7906 1.74842 27.9247C2.11475 27.0255 2.56434 26.2096 3.09719 25.4769C3.63004 24.7442 4.06298 24.0948 4.39601 23.5287C4.76235 22.9292 4.94552 22.3131 4.94552 21.6803C4.94552 21.0809 4.79565 20.6646 4.49592 20.4315C4.2295 20.1651 3.86316 20.0318 3.39692 20.0318C2.79746 20.0318 2.0648 20.2317 1.19891 20.6313L0 15.9356C0.932488 15.436 1.93158 15.103 2.99728 14.9365C4.09629 14.7366 5.06208 14.6367 5.89466 14.6367C8.09266 14.6367 9.64126 15.1696 10.5404 16.2353C11.4729 17.2677 11.9392 18.6664 11.9392 20.4315C11.9392 21.4639 11.7893 22.3797 11.4896 23.179C11.1899 23.945 10.8069 24.7442 10.3406 25.5768C9.90768 26.3428 9.50805 27.0588 9.14171 27.7249C8.80868 28.3909 8.64217 29.3567 8.64217 30.6222V32.6204C8.64217 34.2523 8.9752 35.4345 9.64126 36.1672C10.3406 36.8666 11.3064 37.2163 12.5386 37.2163C15.103 37.2163 16.3851 35.7676 16.3851 32.8702V15.0364H23.8284V33.07C23.8284 36.367 22.8626 38.8648 20.931 40.5632C18.9994 42.2284 16.1853 43.061 12.4887 43.061Z" fill="#21ADF0"/>
+                <path d="M8.72139 11.2898V8.79203C9.18763 8.65882 9.70383 8.47565 10.27 8.24253C10.8361 8.00941 11.3357 7.69303 11.7686 7.29339C12.2016 6.89375 12.418 6.3942 12.418 5.79475C12.418 5.3285 12.2848 4.96217 12.0184 4.69574C11.752 4.42932 11.4189 4.29611 11.0193 4.29611C10.7529 4.29611 10.4698 4.34606 10.1701 4.44597C9.87035 4.54588 9.60392 4.64579 9.3708 4.7457L8.42166 1.39873C9.08772 0.832578 9.9203 0.466243 10.9194 0.299727C11.8852 0.0999091 12.7011 0 13.3672 0C14.8658 0 16.0481 0.349682 16.914 1.04905C17.7465 1.74841 18.1628 2.78081 18.1628 4.14624C18.1628 5.01212 17.9131 5.7781 17.4135 6.44416H25.0566V11.2898H8.72139Z" fill="#21ADF0"/>
+                <path d="M41.702 43.061C37.6391 43.061 34.6251 42.0785 32.6602 40.1136C30.6954 38.1154 29.7129 35.1681 29.7129 31.2717C29.7129 30.6056 29.7296 29.8063 29.7629 28.8738C29.8295 27.908 29.9127 27.0588 30.0126 26.3261H42.0018V31.0718H37.0563V31.7712C37.0563 33.7694 37.4226 35.2347 38.1553 36.1672C38.9212 37.0664 40.0868 37.516 41.6521 37.516C43.3172 37.516 44.6161 36.9332 45.5486 35.7676C46.481 34.5687 46.9473 32.404 46.9473 29.2735C46.9473 26.3095 46.4311 24.0948 45.3987 22.6295C44.3663 21.1308 42.468 20.3815 39.7038 20.3815C38.2052 20.3815 36.6566 20.6146 35.0581 21.0809C33.4595 21.5471 32.144 22.0633 31.1116 22.6295V16.3851C32.1773 15.819 33.6427 15.3527 35.5077 14.9864C37.4059 14.5868 39.2709 14.387 41.1026 14.387C44.333 14.387 46.9306 14.9864 48.8955 16.1853C50.8937 17.3509 52.3424 19.0161 53.2416 21.1808C54.1741 23.3455 54.6403 25.9098 54.6403 28.8738C54.6403 33.4031 53.6246 36.8999 51.5931 39.3643C49.5616 41.8287 46.2646 43.061 41.702 43.061Z" fill="#21ADF0"/>
+                <path d="M76.5591 42.9111C74.1946 42.9111 72.2797 42.4615 70.8143 41.5623C69.3823 40.6631 68.3665 39.5142 67.7671 38.1154H67.3674L66.5682 42.4116H60.8733V15.0364H68.3665V28.1245C68.3665 30.9553 68.8494 33.0534 69.8152 34.4188C70.781 35.7509 72.1464 36.417 73.9115 36.417C75.3102 36.417 76.3759 36.0007 77.1086 35.1681C77.8413 34.3355 78.2076 33.0034 78.2076 31.1717V15.0364H85.7008V32.8202C85.7008 36.0507 84.9182 38.5484 83.353 40.3135C81.821 42.0452 79.5564 42.9111 76.5591 42.9111Z" fill="#21ADF0"/>
+                <path d="M77.1921 55.6496C74.5279 55.6496 72.5796 55.2499 71.3474 54.4506C70.1152 53.6514 69.4991 52.6023 69.4991 51.3035V50.4543C69.4991 49.8881 69.3492 49.5384 69.0495 49.4052C68.7498 49.3053 68.3501 49.322 67.8506 49.4552L67.5009 46.1082C67.9672 45.9084 68.5666 45.7752 69.2993 45.7086C70.032 45.642 70.6314 45.6087 71.0977 45.6087C72.563 45.6087 73.6287 45.8751 74.2948 46.4079C74.9275 46.9408 75.2439 47.6901 75.2439 48.6559V49.8049C75.2439 50.371 75.3771 50.8039 75.6435 51.1037C75.8767 51.4367 76.3262 51.6032 76.9923 51.6032C77.6917 51.6032 78.1746 51.4367 78.441 51.1037C78.7074 50.8039 78.8406 50.371 78.8406 49.8049V45.7585H84.9351V50.6041C84.9351 52.236 84.319 53.4849 83.0868 54.3507C81.8546 55.2166 79.8897 55.6496 77.1921 55.6496Z" fill="#21ADF0"/>
+                <path d="M100.112 42.9111C97.2479 42.9111 95.0333 42.2284 93.468 40.863C91.9361 39.4975 91.1701 37.5826 91.1701 35.1182C91.1701 32.4539 92.1192 30.3225 94.0175 28.724C95.9491 27.1254 98.9797 26.1596 103.109 25.8266L108.305 25.427V24.6277C108.305 23.0291 107.872 21.8802 107.006 21.1808C106.14 20.4814 104.808 20.1318 103.009 20.1318C101.278 20.1318 99.5791 20.3982 97.914 20.931C96.2821 21.4306 94.8667 22.03 93.6678 22.7294V16.535C94.6336 16.0688 95.999 15.6025 97.7641 15.1363C99.5292 14.6367 101.577 14.387 103.909 14.387C106.173 14.387 108.188 14.72 109.953 15.3861C111.718 16.0188 113.1 17.1012 114.099 18.6331C115.132 20.1651 115.648 22.2632 115.648 24.9274V42.4116H108.305V30.8221L103.958 31.2717C101.96 31.4715 100.562 31.8711 99.7623 32.4706C98.9963 33.07 98.6133 33.8693 98.6133 34.8684C98.6133 35.8675 98.9297 36.6168 99.5625 37.1164C100.229 37.6159 101.078 37.8657 102.11 37.8657C102.51 37.8657 102.909 37.8324 103.309 37.7658C103.709 37.6659 104.075 37.5659 104.408 37.466L105.057 42.1618C104.425 42.3949 103.675 42.5781 102.81 42.7113C101.944 42.8445 101.044 42.9111 100.112 42.9111Z" fill="#21ADF0"/>
+                <path d="M13.5877 92.1967C9.25827 92.1967 6.11113 91.1977 4.14624 89.1995C2.21466 87.168 1.24887 84.2373 1.24887 80.4074V64.1722H8.74208V80.8071C8.74208 82.5721 9.12506 83.9209 9.89103 84.8534C10.6903 85.7526 11.9225 86.2022 13.5877 86.2022C15.2528 86.2022 16.4684 85.7526 17.2344 84.8534C18.0337 83.9209 18.4333 82.5721 18.4333 80.8071V54.3311H25.9265V80.4074C25.9265 84.2373 24.9441 87.168 22.9792 89.1995C21.0476 91.1977 17.9171 92.1967 13.5877 92.1967Z" fill="#21ADF0"/>
+                <path d="M42.3499 92.1967C40.385 92.1967 38.4035 91.9803 36.4053 91.5473C34.4404 91.1144 32.692 90.4983 31.16 89.699L33.2581 83.7544C34.2572 84.2873 35.5394 84.8534 37.1046 85.4529C38.6699 86.019 40.3184 86.3021 42.0502 86.3021C44.7477 86.3021 46.0965 85.5195 46.0965 83.9542C46.0965 83.0883 45.5803 82.4223 44.5479 81.956C43.5488 81.4565 42.1501 80.8903 40.3517 80.2576C38.5866 79.6248 37.0713 78.9421 35.8058 78.2094C34.5403 77.4768 33.5579 76.5776 32.8585 75.5119C32.1924 74.4462 31.8594 73.114 31.8594 71.5155C31.8594 68.7846 32.8751 66.7698 34.9066 65.471C36.9714 64.1722 39.7189 63.5227 43.1492 63.5227C45.0141 63.5227 46.6959 63.6726 48.1946 63.9723C49.6932 64.2721 50.8588 64.655 51.6914 65.1213V71.016C50.8255 70.6163 49.61 70.2333 48.0447 69.867C46.4795 69.4674 44.9642 69.2675 43.4988 69.2675C40.7347 69.2675 39.3526 69.9669 39.3526 71.3656C39.3526 72.1649 39.8855 72.7977 40.9512 73.2639C42.0502 73.6968 43.5821 74.2464 45.547 74.9124C48.1446 75.8116 50.1262 76.894 51.4916 78.1595C52.8903 79.3917 53.5897 81.1901 53.5897 83.5546C53.5897 85.0532 53.24 86.4686 52.5407 87.8007C51.8746 89.0996 50.7256 90.1653 49.0938 90.9978C47.4619 91.7971 45.214 92.1967 42.3499 92.1967Z" fill="#21ADF0"/>
+                <path d="M29.0768 60.3756V57.2285L34.1222 55.1303H51.956V60.3756H29.0768Z" fill="#21ADF0"/>
+                <path d="M74.9492 92.0469C72.5847 92.0469 70.6698 91.5973 69.2045 90.6981C67.7724 89.7989 66.7567 88.65 66.1572 87.2512H65.7576L64.9583 91.5473H59.2635V64.1722H66.7567V77.2603C66.7567 80.0911 67.2396 82.1892 68.2054 83.5546C69.1711 84.8867 70.5366 85.5528 72.3016 85.5528C73.7004 85.5528 74.7661 85.1365 75.4987 84.3039C76.2314 83.4713 76.5978 82.1392 76.5978 80.3075V64.1722H84.091V81.956C84.091 85.1864 83.3083 87.6842 81.7431 89.4492C80.2111 91.181 77.9465 92.0469 74.9492 92.0469Z" fill="#21ADF0"/>
+                <path d="M98.3522 91.5473V73.4637C98.3522 72.065 98.0192 71.0493 97.3532 70.4165C96.7204 69.7837 95.6713 69.4674 94.206 69.4674C93.107 69.4674 92.0913 69.6172 91.1588 69.9169C90.2596 70.2167 89.4104 70.583 88.6111 71.016V65.0214C89.3437 64.6884 90.3761 64.3553 91.7083 64.0223C93.0404 63.6893 94.6056 63.5227 96.404 63.5227C98.2357 63.5227 99.8509 63.7892 101.25 64.322C102.682 64.8549 103.797 65.754 104.597 67.0196C105.429 68.2518 105.845 69.9502 105.845 72.115V91.5473H98.3522Z" fill="#21ADF0"/>
+                <path d="M119.611 92.0469C117.48 92.0469 115.765 91.5307 114.466 90.4983C113.201 89.4326 112.568 87.8174 112.568 85.6527V82.4056C112.568 80.4407 113.001 78.9921 113.867 78.0596C114.733 77.1271 115.931 76.4277 117.463 75.9615L117.513 75.7616L112.068 73.8134V72.5146C112.068 70.8161 112.535 69.3008 113.467 67.9687C114.433 66.6033 115.832 65.5209 117.663 64.7217C119.495 63.9224 121.726 63.5227 124.357 63.5227C128.021 63.5227 130.918 64.3553 133.049 66.0205C135.214 67.6856 136.296 70.2 136.296 73.5636V81.0568C136.296 82.6554 136.646 83.8044 137.345 84.5037C138.045 85.2031 138.911 85.5528 139.943 85.5528C141.375 85.5528 142.524 84.9533 143.39 83.7544C144.256 82.5555 144.689 80.9569 144.689 78.9587V64.1722H152.182V91.5473H146.387L145.538 87.2512H145.138C144.539 88.65 143.556 89.7989 142.191 90.6981C140.859 91.5973 139.194 92.0469 137.196 92.0469C134.465 92.0469 132.4 91.3309 131.001 89.8988C129.636 88.4335 128.953 86.1356 128.953 83.0051V74.1131C128.953 72.3481 128.503 71.1325 127.604 70.4665C126.705 69.7671 125.589 69.4174 124.257 69.4174C122.992 69.4174 121.943 69.7005 121.11 70.2666C120.278 70.7995 119.828 71.6154 119.761 72.7144L124.107 74.8125L123.608 78.0596C122.376 78.0929 121.443 78.3926 120.81 78.9587C120.178 79.4916 119.861 80.4407 119.861 81.8062V84.8534C119.861 86.2188 120.527 86.9016 121.859 86.9016C122.526 86.9016 123.108 86.8016 123.608 86.6018L124.307 91.0478C123.042 91.7139 121.476 92.0469 119.611 92.0469Z" fill="#21ADF0"/>
+                <path d="M168.943 92.0469C165.912 92.0469 163.598 91.1644 161.999 89.3993C160.401 87.6342 159.601 85.0366 159.601 81.6063V64.1722H167.095V80.3075C167.095 82.1392 167.461 83.4713 168.194 84.3039C168.926 85.1365 169.992 85.5528 171.391 85.5528C173.156 85.5528 174.521 84.8867 175.487 83.5546C176.453 82.1892 176.936 80.0911 176.936 77.2603V64.1722H184.429V91.5473H178.734L177.935 87.3511H177.485C176.919 88.6833 175.937 89.7989 174.538 90.6981C173.172 91.5973 171.307 92.0469 168.943 92.0469Z" fill="#21ADF0"/>
+                <path d="M179.358 61.4746C177.459 61.4746 175.944 61.0417 174.812 60.1758C173.68 59.3099 173.113 58.0943 173.113 56.5291C173.113 54.9638 173.68 53.7483 174.812 52.8824C175.944 52.0165 177.459 51.5836 179.358 51.5836C181.256 51.5836 182.788 52.0165 183.954 52.8824C185.086 53.7483 185.652 54.9638 185.652 56.5291C185.652 58.0943 185.086 59.3099 183.954 60.1758C182.788 61.0417 181.256 61.4746 179.358 61.4746ZM179.358 58.5772C180.09 58.5772 180.657 58.3941 181.056 58.0277C181.456 57.6614 181.656 57.1618 181.656 56.5291C181.656 55.8963 181.456 55.3968 181.056 55.0304C180.657 54.6641 180.09 54.4809 179.358 54.4809C178.658 54.4809 178.109 54.6641 177.709 55.0304C177.31 55.3968 177.11 55.8963 177.11 56.5291C177.11 57.1618 177.31 57.6614 177.709 58.0277C178.109 58.3941 178.658 58.5772 179.358 58.5772Z" fill="#21ADF0"/>
+                <path d="M173.549 49.0359V46.9877C173.882 46.8878 174.299 46.738 174.798 46.5381C175.264 46.3383 175.681 46.0719 176.047 45.7389C176.413 45.4058 176.597 44.9895 176.597 44.49C176.597 44.1237 176.497 43.8406 176.297 43.6408C176.064 43.4076 175.781 43.2911 175.448 43.2911C174.881 43.2911 174.399 43.4576 173.999 43.7906L173.1 40.8933C173.699 40.427 174.448 40.1273 175.348 39.9941C176.214 39.8276 176.963 39.7443 177.596 39.7443C178.861 39.7443 179.894 40.0107 180.693 40.5436C181.459 41.0431 181.842 41.8757 181.842 43.0413C181.842 43.341 181.808 43.6574 181.742 43.9904C181.675 44.2902 181.559 44.5733 181.392 44.8397H187.287V49.0359H173.549Z" fill="#21ADF0"/>
+                <path d="M199.14 91.5473V73.4637C199.14 72.065 198.807 71.0493 198.141 70.4165C197.508 69.7837 196.459 69.4674 194.994 69.4674C193.895 69.4674 192.879 69.6172 191.946 69.9169C191.047 70.2167 190.198 70.583 189.399 71.016V65.0214C190.131 64.6884 191.164 64.3553 192.496 64.0223C193.828 63.6893 195.393 63.5227 197.192 63.5227C199.023 63.5227 200.638 63.7892 202.037 64.322C203.469 64.8549 204.585 65.754 205.384 67.0196C206.217 68.2518 206.633 69.9502 206.633 72.115V91.5473H199.14Z" fill="#21ADF0"/>
+                <path d="M8.40959 118.76C7.32969 118.76 6.49466 118.503 5.90448 117.988C5.32686 117.473 5.03806 116.751 5.03806 115.822C5.03806 114.817 5.39593 114.014 6.11167 113.411C6.83997 112.808 7.98265 112.444 9.53971 112.319L11.4986 112.168V111.867C11.4986 111.264 11.3354 110.831 11.0089 110.567C10.6824 110.303 10.1801 110.171 9.50204 110.171C8.84908 110.171 8.20868 110.272 7.58083 110.473C6.96554 110.661 6.43187 110.887 5.97982 111.151V108.815C6.34398 108.639 6.85881 108.464 7.52433 108.288C8.18984 108.099 8.96209 108.005 9.84108 108.005C10.6949 108.005 11.4546 108.131 12.1202 108.382C12.7857 108.621 13.3068 109.029 13.6835 109.606C14.0728 110.184 14.2674 110.975 14.2674 111.98V118.572H11.4986V114.202L9.85991 114.372C9.1065 114.447 8.57911 114.598 8.27774 114.824C7.98893 115.05 7.84453 115.351 7.84453 115.728C7.84453 116.105 7.96382 116.387 8.2024 116.575C8.45354 116.764 8.77374 116.858 9.163 116.858C9.31369 116.858 9.46437 116.845 9.61505 116.82C9.76574 116.783 9.90386 116.745 10.0294 116.707L10.2743 118.478C10.0357 118.566 9.75318 118.635 9.4267 118.685C9.10022 118.735 8.76118 118.76 8.40959 118.76Z" fill="#808080"/>
+                <path d="M12.0523 123.488V121.812C12.0523 121.498 11.9142 121.341 11.6379 121.341C11.5752 121.341 11.5124 121.347 11.4496 121.36C11.3868 121.372 11.324 121.391 11.2612 121.416L11.1294 120.06C11.3052 119.997 11.55 119.934 11.864 119.872C12.1653 119.809 12.473 119.777 12.7869 119.777C13.4022 119.777 13.8354 119.897 14.0865 120.135C14.3377 120.386 14.4633 120.725 14.4633 121.152V123.488H12.0523Z" fill="#808080"/>
+                <path d="M11.737 106.819V102.543H14.3363V106.819H11.737Z" fill="#808080"/>
+                <path d="M23.5463 118.76C22.6548 118.76 21.9328 118.591 21.3803 118.252C20.8403 117.913 20.4573 117.48 20.2313 116.952H20.0806L19.7792 118.572H17.632V108.25H20.4573V113.185C20.4573 114.252 20.6394 115.043 21.0035 115.558C21.3677 116.061 21.8825 116.312 22.548 116.312C23.0754 116.312 23.4773 116.155 23.7535 115.841C24.0298 115.527 24.1679 115.025 24.1679 114.334V108.25H26.9932V114.956C26.9932 116.174 26.6981 117.115 26.1079 117.781C25.5303 118.434 24.6764 118.76 23.5463 118.76Z" fill="#808080"/>
+                <path d="M32.7283 118.76C31.887 118.76 31.2403 118.566 30.7882 118.176C30.3362 117.775 30.1102 117.166 30.1102 116.349V108.25H32.9355V116.01C32.9355 116.475 33.1552 116.707 33.5947 116.707C33.7831 116.707 33.9965 116.663 34.2351 116.575L34.4988 118.384C34.0216 118.635 33.4315 118.76 32.7283 118.76Z" fill="#808080"/>
+                <path d="M39.3361 118.76C38.4948 118.76 37.8481 118.566 37.3961 118.176C36.944 117.775 36.718 117.166 36.718 116.349V108.25H39.5433V116.01C39.5433 116.475 39.7631 116.707 40.2025 116.707C40.3909 116.707 40.6044 116.663 40.8429 116.575L41.1066 118.384C40.6295 118.635 40.0393 118.76 39.3361 118.76Z" fill="#808080"/>
+                <path d="M49.1271 118.76C48.2356 118.76 47.5136 118.591 46.9611 118.252C46.4211 117.913 46.0381 117.48 45.8121 116.952H45.6614L45.3601 118.572H43.2128V108.25H46.0381V113.185C46.0381 114.252 46.2202 115.043 46.5844 115.558C46.9485 116.061 47.4633 116.312 48.1289 116.312C48.6562 116.312 49.0581 116.155 49.3343 115.841C49.6106 115.527 49.7487 115.025 49.7487 114.334V108.25H52.574V114.956C52.574 116.174 52.2789 117.115 51.6887 117.781C51.1111 118.434 50.2573 118.76 49.1271 118.76Z" fill="#808080"/>
+                <path d="M50.1472 106.819V102.543H52.7465V106.819H50.1472Z" fill="#808080"/>
+                <path d="M59.119 118.76C57.9763 118.76 57.1036 118.428 56.5009 117.762C55.8982 117.097 55.5968 116.117 55.5968 114.824V108.25H58.4221V114.334C58.4221 115.025 58.5602 115.527 58.8365 115.841C59.1127 116.155 59.5146 116.312 60.0419 116.312C60.7075 116.312 61.2223 116.061 61.5864 115.558C61.9506 115.043 62.1327 114.252 62.1327 113.185V108.25H64.958V118.572H62.8107L62.5094 116.99H62.3399C62.1264 117.492 61.756 117.913 61.2286 118.252C60.7137 118.591 60.0106 118.76 59.119 118.76Z" fill="#808080"/>
+                <path d="M63.2342 107.233C62.5185 107.233 61.9472 107.07 61.5202 106.743C61.0933 106.417 60.8798 105.959 60.8798 105.368C60.8798 104.778 61.0933 104.32 61.5202 103.993C61.9472 103.667 62.5185 103.504 63.2342 103.504C63.95 103.504 64.5276 103.667 64.9671 103.993C65.394 104.32 65.6075 104.778 65.6075 105.368C65.6075 105.959 65.394 106.417 64.9671 106.743C64.5276 107.07 63.95 107.233 63.2342 107.233ZM63.2342 106.141C63.5105 106.141 63.724 106.072 63.8746 105.933C64.0253 105.795 64.1007 105.607 64.1007 105.368C64.1007 105.13 64.0253 104.941 63.8746 104.803C63.724 104.665 63.5105 104.596 63.2342 104.596C62.9706 104.596 62.7634 104.665 62.6127 104.803C62.462 104.941 62.3867 105.13 62.3867 105.368C62.3867 105.607 62.462 105.795 62.6127 105.933C62.7634 106.072 62.9706 106.141 63.2342 106.141Z" fill="#808080"/>
+                <path d="M61.2325 102.543V101.771C61.3581 101.733 61.5151 101.677 61.7034 101.601C61.8792 101.526 62.0362 101.425 62.1743 101.3C62.3124 101.174 62.3815 101.017 62.3815 100.829C62.3815 100.691 62.3438 100.584 62.2685 100.509C62.1806 100.421 62.0739 100.377 61.9483 100.377C61.7348 100.377 61.5527 100.44 61.4021 100.565L61.063 99.4729C61.2891 99.2971 61.5716 99.1841 61.9106 99.1338C62.2371 99.0711 62.5196 99.0397 62.7582 99.0397C63.2354 99.0397 63.6246 99.1401 63.926 99.341C64.2148 99.5294 64.3592 99.8433 64.3592 100.283C64.3592 100.396 64.3467 100.515 64.3216 100.641C64.2964 100.754 64.2525 100.86 64.1897 100.961H66.4123V102.543H61.2325Z" fill="#808080"/>
+                <path d="M71.0698 118.572V111.754C71.0698 111.226 70.9442 110.843 70.6931 110.605C70.4545 110.366 70.0589 110.247 69.5064 110.247C69.092 110.247 68.7091 110.303 68.3575 110.416C68.0184 110.529 67.6982 110.667 67.3969 110.831V108.57C67.6731 108.445 68.0624 108.319 68.5647 108.194C69.0669 108.068 69.6571 108.005 70.3352 108.005C71.0258 108.005 71.6348 108.106 72.1622 108.307C72.7022 108.508 73.1228 108.847 73.4242 109.324C73.7381 109.788 73.8951 110.429 73.8951 111.245V118.572H71.0698Z" fill="#808080"/>
+                <path d="M81.3646 118.817C79.7322 118.817 78.5456 118.44 77.8047 117.687C77.0764 116.921 76.7123 115.816 76.7123 114.372V108.25H79.5376V114.522C79.5376 115.188 79.682 115.696 79.9708 116.048C80.2722 116.387 80.7368 116.557 81.3646 116.557C81.9925 116.557 82.4508 116.387 82.7396 116.048C83.041 115.696 83.1917 115.188 83.1917 114.522V104.54H86.017V114.372C86.017 115.816 85.6465 116.921 84.9057 117.687C84.1774 118.44 82.997 118.817 81.3646 118.817Z" fill="#808080"/>
+                <path d="M75.5024 106.819V105.632L77.0469 104.841H82.5092V106.819H75.5024Z" fill="#808080"/>
+                <path d="M90.8156 118.572L87.8208 108.25H90.6649L92.944 116.293H93.057C93.2579 116.293 93.4463 116.236 93.6221 116.123C93.7978 116.01 93.9485 115.86 94.0741 115.671C94.3252 115.32 94.5136 114.905 94.6392 114.428C94.7647 113.938 94.8275 113.455 94.8275 112.978C94.8275 112.137 94.6643 111.49 94.3378 111.038C94.0239 110.586 93.5844 110.36 93.0193 110.36C92.9063 110.36 92.7996 110.366 92.6991 110.379C92.6112 110.391 92.5296 110.416 92.4543 110.454L91.9269 108.288C92.2157 108.2 92.4856 108.15 92.7368 108.137C93.0005 108.112 93.2139 108.099 93.3772 108.099C94.0427 108.099 94.6203 108.187 95.11 108.363C95.5998 108.539 96.0204 108.803 96.372 109.154C97.251 110.033 97.6905 111.289 97.6905 112.921C97.6905 113.938 97.5273 114.83 97.2008 115.596C96.8868 116.349 96.5039 116.946 96.0518 117.385C95.6751 117.749 95.1979 118.038 94.6203 118.252C94.0553 118.465 93.2767 118.572 92.2847 118.572H90.8156Z" fill="#808080"/>
+                <path d="M114.226 118.817C113.586 118.817 112.983 118.741 112.418 118.591C111.853 118.453 111.325 118.252 110.836 117.988L111.589 115.935C111.865 116.098 112.198 116.243 112.587 116.368C112.977 116.494 113.36 116.557 113.736 116.557C114.44 116.557 114.998 116.293 115.413 115.765C115.827 115.226 116.034 114.422 116.034 113.355C116.034 112.35 115.827 111.584 115.413 111.057C114.998 110.529 114.352 110.266 113.473 110.266C113.058 110.266 112.631 110.328 112.192 110.454C111.752 110.567 111.388 110.711 111.099 110.887V108.57C111.489 108.395 111.928 108.256 112.418 108.156C112.908 108.056 113.429 108.005 113.981 108.005C115.714 108.005 116.97 108.482 117.748 109.437C118.527 110.379 118.916 111.684 118.916 113.355C118.916 115.138 118.508 116.494 117.692 117.423C116.876 118.352 115.72 118.817 114.226 118.817Z" fill="#808080"/>
+                <path d="M116.225 106.819C115.634 106.819 115.17 106.731 114.831 106.555C114.492 106.379 114.253 106.159 114.115 105.896C113.964 105.62 113.889 105.331 113.889 105.029C113.889 104.552 114.015 104.094 114.266 103.654L116.319 103.918C116.256 104.106 116.225 104.282 116.225 104.445C116.225 104.621 116.281 104.759 116.394 104.86C116.495 104.948 116.67 104.992 116.922 104.992H120.971V106.819H116.225Z" fill="#808080"/>
+                <path d="M123.299 118.572L120.304 108.25H123.148L125.427 116.293H125.54C125.741 116.293 125.929 116.236 126.105 116.123C126.281 116.01 126.431 115.86 126.557 115.671C126.808 115.32 126.997 114.905 127.122 114.428C127.248 113.938 127.31 113.455 127.31 112.978C127.31 112.137 127.147 111.49 126.821 111.038C126.507 110.586 126.067 110.36 125.502 110.36C125.389 110.36 125.283 110.366 125.182 110.379C125.094 110.391 125.013 110.416 124.937 110.454L124.41 108.288C124.699 108.2 124.969 108.15 125.22 108.137C125.483 108.112 125.697 108.099 125.86 108.099C126.526 108.099 127.103 108.187 127.593 108.363C128.083 108.539 128.503 108.803 128.855 109.154C129.734 110.033 130.173 111.289 130.173 112.921C130.173 113.938 130.01 114.83 129.684 115.596C129.37 116.349 128.987 116.946 128.535 117.385C128.158 117.749 127.681 118.038 127.103 118.252C126.538 118.465 125.76 118.572 124.768 118.572H123.299Z" fill="#808080"/>
+                <path d="M148.329 118.817C147.199 118.817 146.295 118.685 145.617 118.421C144.938 118.145 144.442 117.762 144.129 117.272C143.827 116.783 143.676 116.218 143.676 115.577C143.676 115.025 143.758 114.579 143.921 114.24C144.097 113.901 144.317 113.643 144.581 113.468C144.857 113.279 145.133 113.154 145.409 113.091V112.978C144.982 112.84 144.587 112.601 144.223 112.262C143.859 111.911 143.676 111.396 143.676 110.718C143.676 110.253 143.783 109.82 143.997 109.418C144.223 109.016 144.581 108.696 145.07 108.457C145.56 108.206 146.207 108.081 147.01 108.081C147.4 108.081 147.776 108.112 148.14 108.175C148.505 108.225 148.787 108.3 148.988 108.401L148.555 110.303C148.454 110.278 148.316 110.253 148.14 110.228C147.977 110.19 147.808 110.171 147.632 110.171C147.243 110.171 146.954 110.266 146.766 110.454C146.577 110.63 146.483 110.862 146.483 111.151C146.483 111.615 146.659 111.923 147.01 112.074C147.362 112.212 147.745 112.281 148.159 112.281H148.555V114.033H148.159C147.619 114.033 147.211 114.127 146.935 114.315C146.671 114.504 146.539 114.811 146.539 115.238C146.539 115.464 146.59 115.69 146.69 115.916C146.803 116.13 146.992 116.312 147.255 116.462C147.519 116.601 147.896 116.67 148.385 116.67C149.089 116.67 149.566 116.519 149.817 116.218C150.081 115.916 150.212 115.552 150.212 115.125V108.25H153.038V115.031C153.038 116.324 152.655 117.279 151.889 117.894C151.135 118.509 149.949 118.817 148.329 118.817Z" fill="#808080"/>
+                <path d="M161.948 118.76C161.057 118.76 160.335 118.591 159.782 118.252C159.242 117.913 158.859 117.48 158.633 116.952H158.482L158.181 118.572H156.034V108.25H158.859V113.185C158.859 114.252 159.041 115.043 159.405 115.558C159.77 116.061 160.284 116.312 160.95 116.312C161.477 116.312 161.879 116.155 162.155 115.841C162.432 115.527 162.57 115.025 162.57 114.334V108.25H165.395V114.956C165.395 116.174 165.1 117.115 164.51 117.781C163.932 118.434 163.078 118.76 161.948 118.76Z" fill="#808080"/>
+                <path d="M183.234 118.76C182.091 118.76 181.219 118.428 180.616 117.762C180.013 117.097 179.712 116.117 179.712 114.824V108.25H182.537V114.334C182.537 115.025 182.675 115.527 182.951 115.841C183.228 116.155 183.629 116.312 184.157 116.312C184.822 116.312 185.337 116.061 185.701 115.558C186.065 115.043 186.248 114.252 186.248 113.185V108.25H189.073V118.572H186.926L186.624 116.99H186.455C186.241 117.492 185.871 117.913 185.343 118.252C184.829 118.591 184.125 118.76 183.234 118.76Z" fill="#808080"/>
+                <path d="M186.558 106.819V102.543H189.157V106.819H186.558Z" fill="#808080"/>
+                <path d="M194.996 118.572V111.754C194.996 111.226 194.871 110.843 194.62 110.605C194.381 110.366 193.985 110.247 193.433 110.247C193.019 110.247 192.636 110.303 192.284 110.416C191.945 110.529 191.625 110.667 191.323 110.831V108.57C191.6 108.445 191.989 108.319 192.491 108.194C192.993 108.068 193.584 108.005 194.262 108.005C194.952 108.005 195.561 108.106 196.089 108.307C196.629 108.508 197.049 108.847 197.351 109.324C197.665 109.788 197.822 110.429 197.822 111.245V118.572H194.996Z" fill="#808080"/>
+                <path d="M204.161 118.76C203.018 118.76 202.146 118.428 201.543 117.762C200.94 117.097 200.639 116.117 200.639 114.824V108.25H203.464V114.334C203.464 115.025 203.602 115.527 203.879 115.841C204.155 116.155 204.557 116.312 205.084 116.312C205.749 116.312 206.264 116.061 206.628 115.558C206.993 115.043 207.175 114.252 207.175 113.185V108.25H210V118.572H207.853L207.551 116.99H207.382C207.168 117.492 206.798 117.913 206.271 118.252C205.756 118.591 205.053 118.76 204.161 118.76Z" fill="#808080"/>
+                <path d="M8.18357 141.69C7.37992 141.69 6.73324 141.496 6.24352 141.106C5.76636 140.705 5.52778 140.096 5.52778 139.279V138.13C5.52778 137.39 5.69102 136.831 6.0175 136.454C6.34398 136.077 6.79602 135.801 7.37364 135.625L7.39248 135.55L5.33942 134.815V134.326C5.33942 133.71 5.5215 133.145 5.88565 132.631C6.2498 132.116 6.78347 131.708 7.48666 131.406C8.2024 131.092 9.06883 130.935 10.0859 130.935C11.5174 130.935 12.6538 131.268 13.4951 131.934C14.3365 132.587 14.7571 133.579 14.7571 134.91V141.502H11.9318V135.079C11.9318 134.451 11.7623 133.98 11.4233 133.666C11.0968 133.353 10.6259 133.196 10.0106 133.196C9.43298 133.196 8.99976 133.321 8.71096 133.572C8.42215 133.811 8.26518 134.106 8.24007 134.458L9.87875 135.211L9.6904 136.416C9.22579 136.429 8.8742 136.529 8.63561 136.718C8.39703 136.894 8.27774 137.239 8.27774 137.754V138.978C8.27774 139.493 8.52888 139.75 9.03116 139.75C9.2823 139.75 9.50204 139.713 9.6904 139.637L9.95409 141.314C9.47693 141.565 8.88675 141.69 8.18357 141.69Z" fill="#808080"/>
+                <path d="M6.02059 129.749V128.562L7.92296 127.771H11.238C11.2631 127.332 11.4452 126.967 11.7842 126.679C12.1107 126.377 12.5565 126.227 13.1215 126.227C13.7494 126.227 14.2328 126.396 14.5719 126.735C14.9109 127.062 15.0804 127.482 15.0804 127.997C15.0804 128.499 14.9234 128.92 14.6095 129.259C14.2956 129.585 13.8122 129.749 13.1592 129.749H6.02059ZM13.1215 128.75C13.3852 128.75 13.5861 128.681 13.7243 128.543C13.8498 128.393 13.9126 128.217 13.9126 128.016C13.9126 127.802 13.8435 127.627 13.7054 127.488C13.5547 127.338 13.3538 127.262 13.1027 127.262C12.8516 127.262 12.6569 127.332 12.5188 127.47C12.3807 127.608 12.3116 127.784 12.3116 127.997C12.3116 128.198 12.3807 128.374 12.5188 128.524C12.6444 128.675 12.8453 128.75 13.1215 128.75Z" fill="#808080"/>
+                <path d="M19.5413 141.502L16.5465 131.18H19.3906L21.6697 139.223H21.7827C21.9836 139.223 22.172 139.166 22.3478 139.053C22.5236 138.94 22.6743 138.79 22.7998 138.601C23.051 138.25 23.2393 137.835 23.3649 137.358C23.4905 136.868 23.5532 136.385 23.5532 135.908C23.5532 135.067 23.39 134.42 23.0635 133.968C22.7496 133.516 22.3101 133.29 21.745 133.29C21.632 133.29 21.5253 133.296 21.4248 133.309C21.3369 133.321 21.2553 133.346 21.18 133.384L20.6526 131.218C20.9414 131.13 21.2114 131.08 21.4625 131.067C21.7262 131.042 21.9397 131.03 22.1029 131.03C22.7684 131.03 23.3461 131.117 23.8358 131.293C24.3255 131.469 24.7461 131.733 25.0977 132.084C25.9767 132.963 26.4162 134.219 26.4162 135.851C26.4162 136.868 26.253 137.76 25.9265 138.526C25.6126 139.279 25.2296 139.876 24.7775 140.315C24.4008 140.68 23.9237 140.968 23.3461 141.182C22.781 141.395 22.0025 141.502 21.0105 141.502H19.5413Z" fill="#808080"/>
+                <path d="M31.6202 141.69C30.7789 141.69 30.1322 141.496 29.6802 141.106C29.2281 140.705 29.0021 140.096 29.0021 139.279V131.18H31.8274V138.94C31.8274 139.405 32.0472 139.637 32.4867 139.637C32.675 139.637 32.8885 139.593 33.1271 139.505L33.3908 141.314C32.9136 141.565 32.3234 141.69 31.6202 141.69Z" fill="#808080"/>
+                <path d="M36.0462 141.502V137.17H34.9726V135.437H38.589V139.355H38.7209C39.3487 139.355 39.8322 139.104 40.1712 138.601C40.5102 138.099 40.6798 137.339 40.6798 136.322C40.6798 135.154 40.4349 134.338 39.9452 133.874C39.4555 133.409 38.7397 133.177 37.7979 133.177C37.145 133.177 36.5548 133.271 36.0274 133.459C35.5 133.635 35.0291 133.849 34.6148 134.1V131.745C35.0291 131.532 35.5503 131.343 36.1781 131.18C36.8059 131.017 37.528 130.935 38.3442 130.935C40.1649 130.935 41.4834 131.375 42.2996 132.254C43.1284 133.133 43.5427 134.47 43.5427 136.266C43.5427 137.948 43.1535 139.242 42.3749 140.146C41.609 141.05 40.2968 141.502 38.4383 141.502H36.0462Z" fill="#808080"/>
+                <path d="M37.5423 129.768V128.826C37.7181 128.776 37.9128 128.706 38.1262 128.619C38.3397 128.531 38.5281 128.411 38.6913 128.261C38.8545 128.11 38.9362 127.922 38.9362 127.696C38.9362 127.52 38.8859 127.382 38.7855 127.281C38.685 127.181 38.5594 127.131 38.4088 127.131C38.3083 127.131 38.2016 127.149 38.0886 127.187C37.9756 127.225 37.8751 127.262 37.7872 127.3L37.4293 126.038C37.6805 125.825 37.9944 125.687 38.3711 125.624C38.7352 125.548 39.0429 125.511 39.294 125.511C39.8591 125.511 40.3049 125.643 40.6313 125.906C40.9453 126.17 41.1022 126.559 41.1022 127.074C41.1022 127.401 41.0081 127.689 40.8197 127.941H43.7015V129.768H37.5423Z" fill="#808080"/>
+                <path d="M48.8278 141.502V134.684C48.8278 134.156 48.7023 133.773 48.4511 133.535C48.2125 133.296 47.817 133.177 47.2645 133.177C46.8501 133.177 46.4671 133.233 46.1155 133.346C45.7765 133.459 45.4563 133.597 45.1549 133.761V131.5C45.4312 131.375 45.8204 131.249 46.3227 131.124C46.825 130.998 47.4152 130.935 48.0932 130.935C48.7839 130.935 49.3929 131.036 49.9203 131.237C50.4602 131.438 50.8809 131.777 51.1822 132.254C51.4962 132.718 51.6531 133.359 51.6531 134.175V141.502H48.8278Z" fill="#808080"/>
+                <path d="M55.5251 141.502L53.7358 131.18H56.4857L56.9943 134.815C57.032 135.117 57.0759 135.531 57.1261 136.059C57.1889 136.573 57.2454 137.176 57.2957 137.867H57.3522C57.5154 137.176 57.6598 136.573 57.7854 136.059C57.9235 135.531 58.0365 135.098 58.1244 134.759L59.1415 131.18H60.8555L61.8727 134.759C61.9731 135.098 62.0861 135.531 62.2117 136.059C62.3373 136.573 62.4817 137.176 62.6449 137.867H62.7014C62.7642 137.176 62.8144 136.573 62.8521 136.059C62.9023 135.531 62.9526 135.117 63.0028 134.815L63.5302 131.18H66.2613L64.4908 141.502H61.722L60.5353 137.302C60.4098 136.812 60.3093 136.366 60.234 135.964C60.1712 135.55 60.1084 135.129 60.0456 134.702H59.9703C59.8949 135.129 59.8196 135.537 59.7443 135.927C59.6815 136.316 59.5747 136.774 59.4241 137.302L58.2186 141.502H55.5251Z" fill="#808080"/>
+                <path d="M71.8848 141.747C71.144 141.747 70.3968 141.665 69.6434 141.502C68.9026 141.339 68.2433 141.106 67.6657 140.805L68.4568 138.564C68.8335 138.765 69.3169 138.978 69.9071 139.204C70.4973 139.418 71.1189 139.524 71.7718 139.524C72.7889 139.524 73.2975 139.229 73.2975 138.639C73.2975 138.313 73.1029 138.061 72.7136 137.886C72.3369 137.697 71.8095 137.484 71.1314 137.245C70.4659 137.007 69.8946 136.749 69.4174 136.473C68.9402 136.197 68.5698 135.858 68.3061 135.456C68.055 135.054 67.9294 134.552 67.9294 133.949C67.9294 132.919 68.3124 132.16 69.0784 131.67C69.8569 131.18 70.8928 130.935 72.1862 130.935C72.8894 130.935 73.5235 130.992 74.0886 131.105C74.6536 131.218 75.0931 131.362 75.407 131.538V133.761C75.0806 133.61 74.6222 133.466 74.0321 133.327C73.4419 133.177 72.8706 133.101 72.318 133.101C71.2758 133.101 70.7547 133.365 70.7547 133.893C70.7547 134.194 70.9556 134.432 71.3574 134.608C71.7718 134.771 72.3494 134.979 73.0903 135.23C74.0697 135.569 74.8169 135.977 75.3317 136.454C75.8591 136.919 76.1228 137.597 76.1228 138.488C76.1228 139.053 75.991 139.587 75.7273 140.089C75.4761 140.579 75.0429 140.981 74.4276 141.295C73.8123 141.596 72.9647 141.747 71.8848 141.747Z" fill="#808080"/>
+                <path d="M80.0514 135.418C79.185 135.418 78.576 135.23 78.2244 134.853C77.8854 134.464 77.7159 134.018 77.7159 133.516C77.7159 133.076 77.8414 132.624 78.0926 132.16L80.1456 132.423C80.0828 132.612 80.0514 132.813 80.0514 133.026C80.0514 133.189 80.1017 133.321 80.2021 133.422C80.3026 133.51 80.4784 133.553 80.7295 133.553H82.8579V135.418H80.0514ZM80.0514 140.692C79.185 140.692 78.576 140.504 78.2244 140.127C77.8854 139.738 77.7159 139.292 77.7159 138.79C77.7159 138.35 77.8414 137.898 78.0926 137.434L80.1456 137.697C80.0828 137.886 80.0514 138.087 80.0514 138.3C80.0514 138.463 80.1017 138.595 80.2021 138.696C80.3026 138.783 80.4784 138.827 80.7295 138.827H82.8579V140.692H80.0514Z" fill="#808080"/>
+                <path d="M89.5897 141.747C88.4595 141.747 87.5554 141.615 86.8774 141.351C86.1993 141.075 85.7033 140.692 85.3894 140.202C85.088 139.713 84.9373 139.148 84.9373 138.507C84.9373 137.955 85.0189 137.509 85.1822 137.17C85.358 136.831 85.5777 136.573 85.8414 136.398C86.1177 136.209 86.3939 136.084 86.6702 136.021V135.908C86.2432 135.77 85.8477 135.531 85.4835 135.192C85.1194 134.841 84.9373 134.326 84.9373 133.648C84.9373 133.183 85.0441 132.75 85.2575 132.348C85.4835 131.946 85.8414 131.626 86.3311 131.387C86.8209 131.136 87.4675 131.011 88.2712 131.011C88.6605 131.011 89.0372 131.042 89.4013 131.105C89.7655 131.155 90.048 131.23 90.2489 131.331L89.8157 133.233C89.7152 133.208 89.5771 133.183 89.4013 133.158C89.2381 133.12 89.0685 133.101 88.8927 133.101C88.5035 133.101 88.2147 133.196 88.0263 133.384C87.838 133.56 87.7438 133.792 87.7438 134.081C87.7438 134.545 87.9196 134.853 88.2712 135.004C88.6228 135.142 89.0058 135.211 89.4201 135.211H89.8157V136.963H89.4201C88.8802 136.963 88.4721 137.057 88.1958 137.245C87.9321 137.434 87.8003 137.741 87.8003 138.168C87.8003 138.394 87.8505 138.62 87.951 138.846C88.064 139.06 88.2523 139.242 88.516 139.392C88.7797 139.531 89.1564 139.6 89.6462 139.6C90.3494 139.6 90.8265 139.449 91.0777 139.148C91.3413 138.846 91.4732 138.482 91.4732 138.055V131.18H94.2985V137.961C94.2985 139.254 93.9155 140.209 93.1496 140.824C92.3961 141.439 91.2095 141.747 89.5897 141.747Z" fill="#808080"/>
+                <path d="M99.8563 141.502V134.684C99.8563 134.156 99.7307 133.773 99.4796 133.535C99.241 133.296 98.8454 133.177 98.2929 133.177C97.8786 133.177 97.4956 133.233 97.144 133.346C96.8049 133.459 96.4847 133.597 96.1834 133.761V131.5C96.4596 131.375 96.8489 131.249 97.3512 131.124C97.8534 130.998 98.4436 130.935 99.1217 130.935C99.8123 130.935 100.421 131.036 100.949 131.237C101.489 131.438 101.909 131.777 102.211 132.254C102.525 132.718 102.682 133.359 102.682 134.175V141.502H99.8563Z" fill="#808080"/>
+            </svg>
+          </div>
+          <p className="text-sm mt-5">
+            อัพเดทวันที่ {datetime[0]} เวลา {datetime[1]}
+          </p>
+          <p className="text-xs mt-4">
+            ขอขอบคุณภาพ infographic จาก <a target="_blank" rel="noreferrer" className="font-semibold" href="https://www.facebook.com/sarakadeemag/photos/a.1977566252472815/3111944712368291/">นิตยสารสารคดี</a> <br />
+            เเละข้อมูลปริมาณน้ำท่วมล่าสุด จาก <a target="_blank" rel="noreferrer" className="font-semibold" href="https://tiwrm.hii.or.th/DATA/REPORT/php/chart/chaopraya/small/chaopraya.php">thaiwater</a>
+          </p>
+          <p className="text-xs mt-4">Made with 💖 by <a target="_blank" rel="noreferrer" href="https://botw.life/" className="font-semibold">BOTW.life</a></p>    
       </div>
       
       {/* Annotation */}
@@ -622,16 +787,18 @@ const Page = () => {
           </svg>
       </div>
       
-      
-
       {/* Modal */}
       { modal && <div className="fixed top-0 left-0 w-screen h-screen z-10 flex items-center justify-center" style={{ background: '#242424ad'}}>
-          <div className="bg-white p-6 w-1/4 h-1/3 rounded-xl text-center relative">
+          <div className="bg-white p-6 w-1/4 rounded-xl text-center relative">
               <button onClick={() => setModal(false)} className="absolute top-0 right-0 bg-blue-500 p-1 px-2 m-3 text-white rounded-full">ปิด</button>
-              <div className="text-xl font-semibold underline">
-                ประตูน้ำ { dat.title }
-              </div>
-              
+              <div className="text-xl font-semibold underline">{ dat.name }</div>
+              {
+                dat.icon == 'status_red' ? <div className="text-3xl text-red-500 font-bold my-3 mt-4">น้ำล้นตลิ่ง ({dat.percent}%)</div> :
+                dat.icon == 'status_yellow' ? <div className="text-3xl text-yellow-500 font-bold my-3 mt-4">น้ำแล้ง ({dat.percent}%)</div> :
+                dat.icon == 'status_blue' ? <div className="text-3xl text-blue-700 font-bold my-3 mt-4">น้ำมาก ({dat.percent}%)</div> :
+                <div className="text-3xl text-blue-400 font-bold my-3 mt-4">น้ำปกติ ({dat.percent}%)</div> 
+              }
+              <div>ปริมาณน้ำ <span className="text-red-500">{dat.quantity}</span> / {dat.qmax} ลบ.ม.</div>
           </div>
       </div>}
   </div> 
