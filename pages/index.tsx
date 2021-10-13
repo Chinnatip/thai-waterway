@@ -1,11 +1,122 @@
+import { useState, useEffect } from "react"
+// import axios from 'axios'
+
+// type ProvinceDat = {
+//     id: number
+//     geocode: string
+//     province_code: string
+//     province_name: Titler
+// }
+
+// type Titler = {
+//     en: string
+//     th: string
+//     jp?: string
+
+// }
+
+// type WaterDat = {
+//     agency:{
+//         agency_name: Titler
+//         agency_shortname:  Titler
+//         id: number
+//     }
+//     basin: {
+//         basin_code: number
+//         basin_name: Titler
+//         id: number
+//         floodgate?: string
+//         floodgate_height?: string
+//         floodgate_open?: string
+//     }
+//     geocode: {
+//         amphoe_code: string
+//         amphoe_name: Titler
+//         area_code: string
+//         area_name: Titler
+//         province_code: string
+//         province_name: Titler
+//         tumbon_code: string
+//         tumbon_name: Titler
+//     }
+//     pump?: string
+//     pump_on?: string
+//     station: {
+//         agency_id: number
+//         critical_level_m?: any
+//         critical_level_msl?: any
+//         geocode_id: number
+//         id: number
+//         is_key_station: boolean
+//         left_bank?: any
+//         right_bank?: any
+//         tele_station_lat: number
+//         tele_station_long: number
+//         tele_station_name: Titler
+//         tele_station_oldcode: string
+//         warning_level_m?: any
+//     }
+//     watergate_datetime_in: string
+//     watergate_datetime_out: string
+//     watergate_in: number
+//     watergate_out?: number
+//     watergate_out2?: number
+// }
+
+// type StationDat = {
+//     province_code: string
+//     province_name: Titler
+//     station: {
+//         station_id: string
+//         station_lat: number
+//         station_long: number
+//         station_oldcode: string
+//         station_name: Titler
+//     }[]
+// }
+
+// type WaterFetchData = {
+//     province?: {
+//         result: string
+//         data: ProvinceDat[]
+//     }
+//     station?: {
+//         result: string
+//         data: StationDat[]
+//     }
+//     watergate_data?: {
+//         result: string
+//         data: WaterDat[]
+//     }
+// }
+
 const Page = () => {
-  const logger = () => {
-      alert('YOYO')
+  const [modal, setModal] = useState(false)
+  const [dat, setDat] = useState({ title: '' })
+//   const [waterGate, setWaterGate ] = useState<WaterDat[]>([])
+//   const [station, setStation ] = useState<StationDat[]>([])
+//   const [province, setProvince ] = useState<ProvinceDat[]>([])
+  const logger = (placeID: string) => {
+      setModal(true)
+      setDat({ title: placeID })
   }
-  return <div style={{ background: 'linear-gradient(180deg, #E4F2FC 0%, #C0E1F7 100%)' }}>
+  useEffect(() => {
+    (async () => {
+    //   const WATER_API = 'http://api-v3.thaiwater.net:9200/api/v1/thaiwater30/public/watergate_load'
+    //   const resp = await axios(WATER_API)
+    //   if (resp.status == 200) {
+    //     const res: any = resp.data 
+    //     const waterData: WaterFetchData = res
+    //     waterData.watergate_data?.data && setWaterGate(waterData.watergate_data?.data)
+    //     waterData.station?.data && setStation(waterData.station?.data)
+    //     waterData.province?.data && setProvince(waterData.province?.data)
+    //   }
+    })()
+  }, []);
+  return <div style={{ background: 'linear-gradient(180deg, #E4F2FC 0%, #C0E1F7 100%)' }} className="relative">
       {/* Water Map */}
       <div className="pt-16 -ml-16 w-full text-center">
-          <span className="inline-block -mb-3">
+          <span className="inline-block">
           <svg width="705" height="1242" viewBox="0 0 705 1242" fill="none" xmlns="http://www.w3.org/2000/svg">
               <g id="waterway">
                   <g id="river">
@@ -306,41 +417,41 @@ const Page = () => {
                       <text id="&#224;&#184;&#170;&#224;&#184;&#163;&#224;&#184;&#176;&#224;&#184;&#154;&#224;&#184;&#184;&#224;&#184;&#163;&#224;&#184;&#181;" fill="black" style={{whiteSpace: 'pre'}} fontFamily="Sukhumvit Set, IBM Plex Mono" fontSize="11" fontWeight="600" letterSpacing="0em"><tspan x="626.699" y="936.695">&#xe2a;&#xe23;&#xe30;&#xe1a;&#xe38;&#xe23;&#xe35;</tspan></text>
                   </g>
                   <g id="meter">
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 27" x="112.068" y="166.482" width="9" height="9" rx="2" transform="rotate(-45 112.068 166.482)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 34" x="183.586" y="112" width="9" height="9" rx="2" transform="rotate(-45 183.586 112)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 35" x="264.586" y="194" width="9" height="9" rx="2" transform="rotate(-45 264.586 194)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 37" x="319.586" y="341" width="9" height="9" rx="2" transform="rotate(-45 319.586 341)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 38" x="438.586" y="251" width="9" height="9" rx="2" transform="rotate(-45 438.586 251)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 41" x="319.586" y="39.9999" width="9" height="9" rx="2" transform="rotate(-45 319.586 39.9999)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 39" x="388.586" y="306" width="9" height="9" rx="2" transform="rotate(-45 388.586 306)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 40" x="378.586" y="379" width="9" height="9" rx="2" transform="rotate(-45 378.586 379)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 36" x="436.586" y="38.9999" width="9" height="9" rx="2" transform="rotate(-45 436.586 38.9999)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 33" x="112.068" y="61.9999" width="9" height="9" rx="2" transform="rotate(-45 112.068 61.9999)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 28" x="112.068" y="220" width="9" height="9" rx="2" transform="rotate(-45 112.068 220)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 29" x="112.068" y="285" width="9" height="9" rx="2" transform="rotate(-45 112.068 285)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 30" x="118.586" y="366" width="9" height="9" rx="2" transform="rotate(-45 118.586 366)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 31" x="201.586" y="393" width="9" height="9" rx="2" transform="rotate(-45 201.586 393)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 42" x="90.5858" y="484" width="9" height="9" rx="2" transform="rotate(-45 90.5858 484)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 43" x="305.586" y="481" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 481)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 62" x="305.586" y="396.505" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 396.505)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 44" x="305.586" y="577" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 577)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 45" x="305.586" y="614" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 614)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 46" x="305.586" y="660" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 660)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 49" x="305.586" y="756" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 756)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 50" x="305.586" y="886" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 886)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 51" x="305.586" y="937" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 937)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 52" x="305.586" y="1056" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1056)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 59" x="671.586" y="933" width="8.3" height="8.3" rx="2" transform="rotate(-45 671.586 933)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 60" x="595.586" y="986" width="9" height="9" rx="2" transform="rotate(-45 595.586 986)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 61" x="499.586" y="986" width="9" height="9" rx="2" transform="rotate(-45 499.586 986)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 53" x="305.586" y="1111" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1111)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 54" x="305.586" y="1171" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1171)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 55" x="101.586" y="1179.45" width="9" height="9" rx="2" transform="rotate(-45 101.586 1179.45)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 56" x="101.586" y="864.455" width="9" height="9" rx="2" transform="rotate(-45 101.586 864.455)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 57" x="187.586" y="864.455" width="9" height="9" rx="2" transform="rotate(-45 187.586 864.455)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 58" x="187.586" y="698.455" width="9" height="9" rx="2" transform="rotate(-45 187.586 698.455)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 47" x="397.586" y="667.95" width="9.4" height="9.4" rx="2" transform="rotate(-45 397.586 667.95)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
-                      <rect className="cursor-pointer" onClick={() => logger()} id="Rectangle 48" x="594.586" y="722.95" width="9" height="9" rx="2" transform="rotate(-45 594.586 722.95)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 27" x="112.068" y="166.482" width="9" height="9" rx="2" transform="rotate(-45 112.068 166.482)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 34" x="183.586" y="112" width="9" height="9" rx="2" transform="rotate(-45 183.586 112)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 35" x="264.586" y="194" width="9" height="9" rx="2" transform="rotate(-45 264.586 194)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 37" x="319.586" y="341" width="9" height="9" rx="2" transform="rotate(-45 319.586 341)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 38" x="438.586" y="251" width="9" height="9" rx="2" transform="rotate(-45 438.586 251)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 41" x="319.586" y="39.9999" width="9" height="9" rx="2" transform="rotate(-45 319.586 39.9999)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 39" x="388.586" y="306" width="9" height="9" rx="2" transform="rotate(-45 388.586 306)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 40" x="378.586" y="379" width="9" height="9" rx="2" transform="rotate(-45 378.586 379)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 36" x="436.586" y="38.9999" width="9" height="9" rx="2" transform="rotate(-45 436.586 38.9999)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 33" x="112.068" y="61.9999" width="9" height="9" rx="2" transform="rotate(-45 112.068 61.9999)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 28" x="112.068" y="220" width="9" height="9" rx="2" transform="rotate(-45 112.068 220)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 29" x="112.068" y="285" width="9" height="9" rx="2" transform="rotate(-45 112.068 285)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 30" x="118.586" y="366" width="9" height="9" rx="2" transform="rotate(-45 118.586 366)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 31" x="201.586" y="393" width="9" height="9" rx="2" transform="rotate(-45 201.586 393)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 42" x="90.5858" y="484" width="9" height="9" rx="2" transform="rotate(-45 90.5858 484)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 43" x="305.586" y="481" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 481)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 62" x="305.586" y="396.505" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 396.505)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 44" x="305.586" y="577" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 577)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 45" x="305.586" y="614" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 614)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 46" x="305.586" y="660" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 660)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 49" x="305.586" y="756" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 756)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 50" x="305.586" y="886" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 886)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 51" x="305.586" y="937" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 937)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 52" x="305.586" y="1056" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1056)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 59" x="671.586" y="933" width="8.3" height="8.3" rx="2" transform="rotate(-45 671.586 933)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 60" x="595.586" y="986" width="9" height="9" rx="2" transform="rotate(-45 595.586 986)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 61" x="499.586" y="986" width="9" height="9" rx="2" transform="rotate(-45 499.586 986)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 53" x="305.586" y="1111" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1111)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 54" x="305.586" y="1171" width="11.2" height="11.2" rx="2" transform="rotate(-45 305.586 1171)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 55" x="101.586" y="1179.45" width="9" height="9" rx="2" transform="rotate(-45 101.586 1179.45)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 56" x="101.586" y="864.455" width="9" height="9" rx="2" transform="rotate(-45 101.586 864.455)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 57" x="187.586" y="864.455" width="9" height="9" rx="2" transform="rotate(-45 187.586 864.455)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 58" x="187.586" y="698.455" width="9" height="9" rx="2" transform="rotate(-45 187.586 698.455)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 47" x="397.586" y="667.95" width="9.4" height="9.4" rx="2" transform="rotate(-45 397.586 667.95)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
+                      <rect className="cursor-pointer" onClick={() => logger('yoyo')} id="Rectangle 48" x="594.586" y="722.95" width="9" height="9" rx="2" transform="rotate(-45 594.586 722.95)" fill="#2B62B5" stroke="white" strokeWidth="2"/>
                   </g>
               </g>
               <defs>
@@ -510,6 +621,19 @@ const Page = () => {
               </defs>
           </svg>
       </div>
+      
+      
+
+      {/* Modal */}
+      { modal && <div className="fixed top-0 left-0 w-screen h-screen z-10 flex items-center justify-center" style={{ background: '#242424ad'}}>
+          <div className="bg-white p-6 w-1/4 h-1/3 rounded-xl text-center relative">
+              <button onClick={() => setModal(false)} className="absolute top-0 right-0 bg-blue-500 p-1 px-2 m-3 text-white rounded-full">ปิด</button>
+              <div className="text-xl font-semibold underline">
+                ประตูน้ำ { dat.title }
+              </div>
+              
+          </div>
+      </div>}
   </div> 
 }
 
