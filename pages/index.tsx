@@ -730,7 +730,8 @@ const Page = () => {
           </p>
           <p className="text-xs mt-4">
             ขอขอบคุณภาพ infographic จาก <a target="_blank" rel="noreferrer" className="font-semibold" href="https://www.facebook.com/sarakadeemag/photos/a.1977566252472815/3111944712368291/">นิตยสารสารคดี</a> <br />
-            เเละข้อมูลปริมาณน้ำท่วมล่าสุด จาก <a target="_blank" rel="noreferrer" className="font-semibold" href="https://tiwrm.hii.or.th/DATA/REPORT/php/chart/chaopraya/small/chaopraya.php">thaiwater</a>
+            ที่มาของข้อมูล <a href="https://www.hii.or.th/" target="_blank" rel="noreferrer" className="font-semibold"> สถาบันสารสนเทศทรัพยากรน้ำ (องค์การมหาชน)</a> และ <a href="https://www1.rid.go.th/index.php/en/" target="_blank" rel="noreferrer" className="font-semibold">กรมชลประทาน</a> <br />
+            ข้อมูลนำในใช้เพื่อสาธารณประโยชน์
           </p>
           <p className="text-xs mt-4">Made with 💖 by <a target="_blank" rel="noreferrer" href="https://botw.life/" className="font-semibold">BOTW.life</a></p>    
       </div>
