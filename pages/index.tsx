@@ -140,8 +140,8 @@ const getITC = (obj: ItcWater): Marker[] => {
         return {  
             code: d.station,
             name: d.name,
-            quantity: parseFloat( d.storage.replace(',','')),
-            qmax: parseFloat( d.qmax.replace(',','')),
+            quantity: parseFloat( d.storage?.replace(',','')),
+            qmax: parseFloat( d.qmax?.replace(',','')),
             percent: parseFloat( damPercent(d.storage,d.qmax)),
             icon: d.icon_span
         }
@@ -171,8 +171,8 @@ const getATG = (obj: Atg) :Marker[] => {
     }
     return keys.map(k => {
         const d = obj[k]
-        const quantity = d.quantity != null ? parseFloat(d.quantity.replace(',','')) : 0
-        const qmax = d.qmax != null ? parseFloat(d.qmax.replace(',','')) : 0
+        const quantity = d.quantity != null ? parseFloat(d.quantity?.replace(',','')) : 0
+        const qmax = d.qmax != null ? parseFloat(d.qmax?.replace(',','')) : 0
         const per = percent(quantity, qmax)
         return {  
             code: d.code,
